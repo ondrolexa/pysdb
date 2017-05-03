@@ -6,6 +6,32 @@ structurecol = {'id':0,'structure':1,'planar':2,'desc':3,'scode':4,'gcode':5}
 unitcol = {'id':0,'name':1,'desc':2}
 tagcol = {'id':0,'name':1,'desc':2,'check':3}
 
+SCHEMA='''pragma auto_vacuum=0;
+pragma default_cache_size=2000;
+pragma encoding='UTF-8';
+pragma page_size=1024;
+drop table if exists sites;
+CREATE TABLE sites (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_units integer NOT NULL DEFAULT 0, name varchar(16) NOT NULL DEFAULT '', x_coord double DEFAULT NULL, y_coord double DEFAULT NULL, description text);
+drop table if exists structdata;
+CREATE TABLE structdata (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, id_structype integer NOT NULL DEFAULT 0, azimuth double NOT NULL DEFAULT 0, inclination double NOT NULL DEFAULT 0, description text);
+drop table if exists structype;
+CREATE TABLE structype (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, pos integer NOT NULL DEFAULT 0, structure varchar(16) NOT NULL UNIQUE, description text, structcode integer DEFAULT NULL, groupcode integer DEFAULT NULL, planar integer DEFAULT 1);
+drop table if exists tagged;
+CREATE TABLE tagged (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_tags integer NOT NULL DEFAULT 0, id_structdata integer NOT NULL DEFAULT 0);
+drop table if exists tags;
+CREATE TABLE tags (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, pos integer NOT NULL DEFAULT 0, name varchar(16) NOT NULL UNIQUE, description text);
+drop table if exists units;
+CREATE TABLE units (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, pos integer NOT NULL DEFAULT 0, name varchar(60) NOT NULL UNIQUE, description text);
+drop table if exists attach;
+CREATE TABLE attach (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_structdata_planar integer NOT NULL DEFAULT '0', id_structdata_linear integer NOT NULL DEFAULT '0');
+drop table if exists meta;
+CREATE TABLE meta (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, name varchar(16) NOT NULL UNIQUE, value text);'''
+
+DEFDATA = '''INSERT INTO structype VALUES (1, 1,'S', 'Default planar feature', 35, 13, 1);
+INSERT INTO structype VALUES (2, 2, 'L', 'Default linear feature', 78, 13, 0);
+INSERT INTO units VALUES (1, 1, 'Default', 'Default unit');'''
+
+
 class SiteModel(QtCore.QAbstractTableModel):
     # Here we define model to store sites table data
     def __init__(self, mlist, parent=None):
