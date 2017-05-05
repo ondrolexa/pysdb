@@ -1,5 +1,4 @@
-# I'm using PySide, Nokia's official LGPL bindings.
-# You can however easily use PyQt (Riverside Computing's GPL bindings) by commenting this and fixing the appropriate import.
+#!/usr/bin/env python3 
 
 import sys
 import os

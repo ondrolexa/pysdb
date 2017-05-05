@@ -93,6 +93,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #self.connectDatabase('datalx.sdb')
         #logger.debug('Database reading finished.')
         self.connected = False
+        self.changed = False
         self.lastdir = os.getenv('HOME')
 
         # own sorting tracking
@@ -110,13 +111,16 @@ class MainWindow(QtWidgets.QMainWindow):
                GPL v2 or later - NO WARRANTIES!</p>""".format(__version__))
 
     def closeEvent(self, event):
-        if QtWidgets.QMessageBox.question(self, 'Question', 'Are you sure you want to exit the program and lost all changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
-            if self.connected:
-                self.conn.rollback()
-                self.conn.close()
-            event.accept()
+        if self.changed:
+            if QtWidgets.QMessageBox.question(self, 'Question', 'Are you sure you want to exit the program and lost all changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                if self.connected:
+                    self.conn.rollback()
+                    self.conn.close()
+                event.accept()
+            else:
+                event.ignore()
         else:
-            event.ignore()
+            event.accept()
 
     def check_action(self, action):
         if self.connected:
@@ -130,11 +134,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def newFileSDB(self):
         if self.connected:
-            if QtWidgets.QMessageBox.question(self, 'Question', 'Do you want to save all changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
-                self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-                self.conn.commit()
-            else:
-                self.conn.rollback()
+            if self.changed:
+                if QtWidgets.QMessageBox.question(self, 'Question', 'Do you want to save all changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                    self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+                    self.conn.commit()
+                else:
+                    self.conn.rollback()
             self.conn.close()
         fname = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
         dummy = os.path.splitext(fname)
@@ -157,6 +162,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # commit
         self.conn.commit()
         self.connectDatabase(fname)
+        self.changed = False
 
     def infoSDB(self):
         """ Show database info and diagnostics """
@@ -246,11 +252,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.conn.execute("UPDATE meta SET value=? WHERE name='proj4'", (dlg.proj4,))
 
     def saveFileSDB(self):
-        if QtWidgets.QMessageBox.question(self, 'Question', 'Do you want to save all changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
-            self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-            self.conn.commit()
+        if self.changed:
+            if QtWidgets.QMessageBox.question(self, 'Question', 'Do you want to save all current changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+                self.conn.commit()
+                self.changed = False
 
     def saveAsSDB(self):
+        self.saveFileSDB()
         res = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
         if res[0]:
             fname = os.path.splitext(res[0])[0] + '.sdb'
@@ -339,6 +348,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
                 self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
                 self.conn.commit()
+                self.changed = False
             else:
                 val = self.conn.execute("SELECT value FROM meta WHERE name='version'").fetchall()
                 if not val:
@@ -463,6 +473,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.sitesView.setFocus()
 
             self.connected = True
+            self.changed = False
             if self.conn.execute("SELECT value FROM meta WHERE name='version'").fetchall()[0][0] < '3.0.3':
                 QtWidgets.QMessageBox.warning(self, 'Version check', 'Your database is created in older version of PySDB.\nConsider database format update.')
         else:
@@ -549,10 +560,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def db_addSite(self, data):
         """ Add site data database. """
+        self.changed = True
         return self.conn.execute("INSERT INTO sites (name,x_coord,y_coord,description,id_units) VALUES (?,?,?,?,?)", data).lastrowid
 
     def db_updateSite(self, data):
         """ Update site data in database. """
+        self.changed = True
         self.conn.execute("UPDATE sites SET name=?, x_coord=?, y_coord=?, description=?, id_units=? WHERE id=?", data[1:]+data[:1])
 
     def db_removeSite(self, id):
@@ -564,6 +577,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.db_removeData(dat[0])
         # delete from site table
         self.conn.execute("DELETE FROM sites WHERE id=?", (id,))
+        self.changed = True
         return count   
 
     def siteselChanged(self, selected=None, deselected=None):
@@ -727,6 +741,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.conn.execute("INSERT INTO attach (id_structdata_planar, id_structdata_linear) VALUES (?,?)", (attached, id))
         for idtag in tagged:
             self.conn.execute("INSERT INTO tagged (id_structdata, id_tags) VALUES (?,?)", (id, idtag))
+        self.changed = True
 
     def db_updateData(self, data, attached=None, tagged=[]):
         """ Update data in database. attached is id of structure and tagged is list of tag ids. """
@@ -739,6 +754,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("DELETE FROM tagged WHERE id_structdata=?", (data[0],))
         for idtag in tagged:
             self.conn.execute("INSERT INTO tagged (id_structdata, id_tags) VALUES (?,?)", (data[0], idtag))
+        self.changed = True
 
     def db_removeData(self, id):
         """ Remove data in database. """
@@ -747,6 +763,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("DELETE FROM attach WHERE id_structdata_linear=?", (id,))
         self.conn.execute("DELETE FROM tagged WHERE id_structdata=?", (id,))
         self.conn.execute("DELETE FROM structdata WHERE id=?", (id,))
+        self.changed = True
 
     def dataselChanged(self, selected, deselected):
         pass
@@ -834,10 +851,12 @@ class MainWindow(QtWidgets.QMainWindow):
         pos = self.conn.execute("SELECT MAX(pos)+1 FROM structype").fetchall()[0][0]
         if pos == None:
             pos = 1
+        self.changed = True
         return self.conn.execute("INSERT OR IGNORE INTO structype (pos, structure, planar, description, structcode, groupcode) VALUES (?,?,?,?,?,?)", (pos, data[structurecol['structure']], data[structurecol['planar']], data[structurecol['desc']], data[structurecol['scode']], data[structurecol['gcode']]))
 
     def db_updateStructure(self, data):
         """ Update structure in database. """
+        self.changed = True
         return self.conn.execute("UPDATE OR IGNORE structype SET structure=?, planar=?, description=?, structcode=?, groupcode=? WHERE id=?", (data[structurecol['structure']], data[structurecol['planar']], data[structurecol['desc']], data[structurecol['scode']], data[structurecol['gcode']], data[structurecol['id']]))
 
     def db_removeStructure(self, id):
@@ -848,6 +867,7 @@ class MainWindow(QtWidgets.QMainWindow):
             count += 1
             self.db_removeData(dat[0])
         self.conn.execute("DELETE FROM structype WHERE id=?", (id,))
+        self.changed = True
         return count
 
     def db_swapposStructure(self, aid, bid):
@@ -855,6 +875,7 @@ class MainWindow(QtWidgets.QMainWindow):
         bpos = self.conn.execute("SELECT pos FROM structype WHERE id=?", (bid,)).fetchall()[0][0]
         self.conn.execute("UPDATE structype SET pos=? WHERE id=?", (bpos, aid))
         self.conn.execute("UPDATE structype SET pos=? WHERE id=?", (apos, bid))
+        self.changed = True
 
 
     #----------------------------------------------------------------------
@@ -947,11 +968,13 @@ class MainWindow(QtWidgets.QMainWindow):
         pos = self.conn.execute("SELECT MAX(pos)+1 FROM units").fetchall()[0][0]
         if pos == None:
             pos = 1
+        self.changed = True
         return self.conn.execute("INSERT OR IGNORE INTO units (pos, name, description) VALUES (?,?,?)", (pos, data[unitcol['name']], data[unitcol['desc']]))
         
 
     def db_updateUnit(self, data):
         """ Update unit in database. """
+        self.changed = True
         return self.conn.execute("UPDATE OR IGNORE units SET name=?, description=? WHERE id=?", (data[unitcol['name']], data[unitcol['desc']], data[unitcol['id']]))
 
     def db_removeUnit(self, id):
@@ -963,6 +986,7 @@ class MainWindow(QtWidgets.QMainWindow):
             scount += 1
             dcount += self.db_removeSite(dat[0])
         self.conn.execute("DELETE FROM units WHERE id=?", (id,))
+        self.changed = True
         return scount, dcount
 
     def db_swapposUnit(self, aid, bid):
@@ -970,6 +994,7 @@ class MainWindow(QtWidgets.QMainWindow):
         bpos = self.conn.execute("SELECT pos FROM units WHERE id=?", (bid,)).fetchall()[0][0]
         self.conn.execute("UPDATE units SET pos=? WHERE id=?", (bpos, aid))
         self.conn.execute("UPDATE units SET pos=? WHERE id=?", (apos, bid))
+        self.changed = True
 
     #----------------------------------------------------------------------
     # TAG VIEW
@@ -1052,19 +1077,23 @@ class MainWindow(QtWidgets.QMainWindow):
         pos = self.conn.execute("SELECT MAX(pos)+1 FROM tags").fetchall()[0][0]
         if pos == None:
             pos = 1
+        self.changed = True
         return self.conn.execute("INSERT OR IGNORE INTO tags (pos, name, description) VALUES (?,?,?)", (pos, data[tagcol['name']], data[tagcol['desc']]))
 
     def db_updateTag(self, data):
         """ Update tag in database. """
+        self.changed = True
         return self.conn.execute("UPDATE OR IGNORE tags SET name=?, description=? WHERE id=?", (data[tagcol['name']], data[tagcol['desc']], data[tagcol['id']]))
 
     def db_removeTag(self, id):
         """ Remove tag in database. """
         self.conn.execute("DELETE FROM tags WHERE id=?", (id,))
+        self.changed = True
 
     def db_swapposTag(self, aid, bid):
         apos = self.conn.execute("SELECT pos FROM tags WHERE id=?", (aid,)).fetchall()[0][0]
         bpos = self.conn.execute("SELECT pos FROM tags WHERE id=?", (bid,)).fetchall()[0][0]
         self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (bpos, aid))
         self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (apos, bid))
+        self.changed = True
 
