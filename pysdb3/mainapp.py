@@ -3,6 +3,7 @@ import os
 import datetime
 import logging
 import sqlite3
+from pathlib import Path
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -94,13 +95,39 @@ class MainWindow(QtWidgets.QMainWindow):
         #logger.debug('Database reading finished.')
         self.connected = False
         self.changed = False
-        self.lastdir = os.getenv('HOME')
 
         # own sorting tracking
         self.sortorder = 0
 
+        # load and apply settings
+        self.app_settings()
+        self.populate_recent()
+
         # get ready
         self.statusBar().showMessage('Ready', 5000)
+
+    def app_settings(self, write=False):
+        settings = QtCore.QSettings('LX', 'pysdb')
+        if write:
+            settings.setValue("lastdir", self.lastdir)
+            settings.beginWriteArray("recent")
+            for ix, f in enumerate(self.recent):
+                settings.setArrayIndex(ix)
+                settings.setValue("sdbfile", f)
+            settings.endArray()
+        else:
+            self.lastdir = settings.value("lastdir", os.getenv('HOME'), type=str)
+            self.recent = []
+            n = settings.beginReadArray("recent")
+            for ix in range(n):
+                settings.setArrayIndex(ix)
+                self.recent.append(settings.value("sdbfile", type=str))
+            settings.endArray()
+
+    def populate_recent(self):
+        self.ui.menuRecent_databases.clear()
+        for f in self.recent:
+            self.ui.menuRecent_databases.addAction(Path(f).name, lambda f=f: self.openFileSDB(False, fname=f))
 
     def about(self):
         """Popup a box with about message."""
@@ -116,21 +143,31 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.connected:
                     self.conn.rollback()
                     self.conn.close()
+                self.app_settings(write=True)
                 event.accept()
             else:
                 event.ignore()
         else:
+            self.app_settings(write=True)
             event.accept()
 
     def check_action(self, action):
         if self.connected:
             action()
 
-    def openFileSDB(self):
-        fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', self.lastdir, 'SDB database (*.sdb);;All Files (*)')
-        if fname != '':
-            self.connectDatabase(fname[0])
-            self.lastdir = os.path.dirname(fname[0])
+    def openFileSDB(self, checked, fname=None):
+        if fname is None:
+            fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', self.lastdir, 'SDB database (*.sdb);;All Files (*)')[0]
+        if Path(fname).is_file():
+            self.connectDatabase(fname)
+            #self.lastdir = Path(fname).absolute().parent
+            self.lastdir = os.path.dirname(fname)
+            if fname in self.recent:
+                self.recent.pop(self.recent.index(fname))
+            self.recent.insert(0, fname)
+            if len(self.recent) > 15:
+                self.recent = self.recent[:15]
+            self.populate_recent()
 
     def newFileSDB(self):
         if self.connected:
