@@ -24,6 +24,8 @@ drop table if exists units;
 CREATE TABLE units (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, pos integer NOT NULL DEFAULT 0, name varchar(60) NOT NULL UNIQUE, description text);
 drop table if exists attach;
 CREATE TABLE attach (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_structdata_planar integer NOT NULL DEFAULT '0', id_structdata_linear integer NOT NULL DEFAULT '0');
+drop table if exists images;
+CREATE TABLE images (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, filename text NOT NULL UNIQUE, description text);
 drop table if exists meta;
 CREATE TABLE meta (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, name varchar(16) NOT NULL UNIQUE, value text);'''
 

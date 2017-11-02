@@ -108,6 +108,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # load and apply settings
         self.app_settings()
         self.populate_recent()
+        self.imagedir = None
 
         # get ready
         self.statusBar().showMessage('Ready', 5000)
@@ -455,6 +456,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     self.conn.execute("UPDATE meta SET value = ? WHERE name = ?", (datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "accessed"))
                 self.conn.commit()
+            # Check for images table
+            it = self.conn.execute("SELECT name FROM sqlite_master WHERE name='images'").fetchall()
+            if not it:
+                QtWidgets.QMessageBox.warning(self, 'Database images table error', 'Images table does not exists !\nDefault one will be created.')
+                self.conn.execute("CREATE TABLE images (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, filename text NOT NULL UNIQUE, description text);")
         return ok
 
     def connectDatabase(self, dbname):
@@ -465,7 +471,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("pragma encoding='UTF-8'")
         #self.conn.execute("BEGIN TRANSACTION")
         if self.checkDatabase():
-            """ Populate models and views from database. """
+            # Create images folder if doesnot exists
+            self.imagedir = dbname.with_name(dbname.stem + '.images')
+            self.imagedir.mkdir(exist_ok=True, parents=True)
+            # Populate models and views from database.
             # -----------------------------------
             # read structures table
             # -----------------------------------
@@ -701,6 +710,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def siteselChanged(self, selected=None, deselected=None):
         # read selected data from structdata table
         tlist = []
+        # populate images
+        self.ui.imagesWidget.clear()
+        self.ui.imagesWidget.setViewMode(QtWidgets.QListView.IconMode)
+        self.ui.imagesWidget.setIconSize(QtCore.QSize(120, 120))
+        self.ui.imagesWidget.setSpacing(12)
         for site in self.siteSelection.selectedRows():
             for row in self.conn.execute("SELECT structdata.id,structdata.id_sites,structdata.id_structype,azimuth,inclination,structype.structure,structdata.description FROM structdata Inner Join structype ON structype.id = structdata.id_structype WHERE structdata.id_sites=? ORDER BY structdata.id",(site.data(),)):
                 tags = []
@@ -709,6 +723,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 nrow = list(row)
                 nrow.append(",".join(tags))
                 tlist.append(nrow)
+            for row in self.conn.execute("SELECT id,filename,description FROM images WHERE id_sites=?", (site.data(),)):
+                item = QtWidgets.QListWidgetItem(row[2])
+                icon = QtGui.QIcon(row[1])
+                item.setIcon(icon)
+                #item.setSizeHint(QtCore.QSize(120, 120))
+                self.ui.imagesWidget.addItem(item)
 
         self.data = DataModel(tlist)
         self.filterdata =  QtCore.QSortFilterProxyModel(self)
@@ -729,6 +749,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dataSelection.selectionChanged.connect(self.dataselChanged)
 
         self.do_filterdata()
+        self.show()
         
     def siteSorting(self, logindex):
         # cycle 4 sort types
