@@ -608,8 +608,8 @@ class MainWindow(QtWidgets.QMainWindow):
         """ Remove selected data from sites. """
         indexlist = self.siteSelection.selectedRows()
         if indexlist:
-            warn_msg = "Are you sure you want to delete selected sites and all related data?"
-            reply = QtWidgets.QMessageBox.warning(self, 'Warning', warn_msg, QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
+            warn_msg = "Are you sure you want to delete selected sites and all related data?\nUse Save to move data to another site."
+            reply = QtWidgets.QMessageBox.warning(self, 'Warning', warn_msg, QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.Save | QtWidgets.QMessageBox.Cancel)
             if reply == QtWidgets.QMessageBox.Yes:
                 # remember postion of cursor
                 row = indexlist[0].row()
@@ -626,6 +626,36 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.siteSelection.setCurrentIndex(self.sites.index(row,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
                 self.ui.sitesView.setFocus()
                 self.statusBar().showMessage('%d sites and %d data have been deleted.' % (len(rows), count),5000)
+            if reply == QtWidgets.QMessageBox.Save:
+                allsites = [item[:2] for item in self.sites._items]
+                selsites = [self.sites.getRow(self.sortsites.mapToSource(index))[:2] for index in indexlist]
+                dessites = [rec for rec in allsites if rec not in selsites]
+                ids, sites = zip(*dessites)
+                # sort it
+                sites, ids = (list(t) for t in zip(*sorted(zip(sites, ids))))
+                dessite, okPressed = QtWidgets.QInputDialog.getItem(self, "Select site","Sitename:", sites, 0, False)
+                if okPressed and dessite:
+                    desid = ids[sites.index(dessite)]
+                    # move data
+                    for id, site in selsites:
+                        for dat in self.conn.execute("SELECT id FROM structdata WHERE id_sites=?", (id,)):
+                            self.conn.execute("UPDATE structdata SET id_sites=? WHERE id=?", (desid, dat[0]))
+                    # sites must be deleted from last to first in sitemodel
+                    sindex = [self.sortsites.mapToSource(index) for index in indexlist]
+                    rows = [index.row() for index in sindex]
+                    count = 0
+                    for dummy,index in sorted(zip(rows,sindex), reverse=True):
+                        count += self.db_removeSite(self.sites.row2id[index.row()])
+                        self.sites.removeRow(index)
+                    #set focus on destination site
+                    index = self.sortsites.mapFromSource(self.sites.createIndex(self.sites.id2row[desid], sitecol['name']))
+                    self.siteSelection.setCurrentIndex(index, QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+                    self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
+                    self.ui.sitesView.setFocus()
+
+                    #self.siteSelection.setCurrentIndex(self.sites.index(self.sites.id2row[desid],sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+                    #self.ui.sitesView.setFocus()
+                    self.statusBar().showMessage('%d sites and %d data have been deleted.' % (len(rows), count),5000)
 
     def filterSiteDlg(self):
         """ Filter sites """
