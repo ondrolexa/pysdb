@@ -4,11 +4,15 @@ import datetime
 import logging
 import sqlite3
 from pathlib import Path
+from lxml import etree
+from collections import OrderedDict
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from .models import *
 from .dialogs import *
+
+__version__ = '3.0.4'
 
 # set up logging to file - see previous section for more details
 logging.basicConfig(level=logging.DEBUG,
@@ -54,6 +58,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.actionSave.triggered.connect(lambda: self.check_action(self.saveFileSDB))
         self.ui.actionSave_as.triggered.connect(lambda: self.check_action(self.saveAsSDB))
         self.ui.actionQuit.triggered.connect(self.close)
+        self.ui.actionFrom_GPX.triggered.connect(self.importSitesFromGPX)
+        self.ui.actionFrom_CSV.triggered.connect(self.importSitesFromCSV)
         # siteview
         self.ui.pushSiteAdd.clicked.connect(lambda: self.check_action(self.addSiteDlg))
         self.ui.pushSiteEdit.clicked.connect(lambda: self.check_action(self.editSiteDlg))
@@ -109,25 +115,25 @@ class MainWindow(QtWidgets.QMainWindow):
     def app_settings(self, write=False):
         settings = QtCore.QSettings('LX', 'pysdb')
         if write:
-            settings.setValue("lastdir", self.lastdir)
+            settings.setValue("lastdir", str(self.lastdir))
             settings.beginWriteArray("recent")
             for ix, f in enumerate(self.recent):
                 settings.setArrayIndex(ix)
-                settings.setValue("sdbfile", f)
+                settings.setValue("sdbfile", str(f))
             settings.endArray()
         else:
-            self.lastdir = settings.value("lastdir", os.getenv('HOME'), type=str)
+            self.lastdir = Path(settings.value("lastdir", str(Path.home()), type=str))
             self.recent = []
             n = settings.beginReadArray("recent")
             for ix in range(n):
                 settings.setArrayIndex(ix)
-                self.recent.append(settings.value("sdbfile", type=str))
+                self.recent.append(Path(settings.value("sdbfile", type=str)))
             settings.endArray()
 
     def populate_recent(self):
         self.ui.menuRecent_databases.clear()
-        for f in self.recent:
-            self.ui.menuRecent_databases.addAction(Path(f).name, lambda f=f: self.openFileSDB(False, fname=f))
+        for p in self.recent:
+            self.ui.menuRecent_databases.addAction(p.name, lambda p=p: self.openFileSDB(False, p))
 
     def about(self):
         """Popup a box with about message."""
@@ -155,19 +161,27 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.connected:
             action()
 
-    def openFileSDB(self, checked, fname=None):
-        if fname is None:
-            fname = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', self.lastdir, 'SDB database (*.sdb);;All Files (*)')[0]
-        if Path(fname).is_file():
-            self.connectDatabase(fname)
-            #self.lastdir = Path(fname).absolute().parent
-            self.lastdir = os.path.dirname(fname)
-            if fname in self.recent:
-                self.recent.pop(self.recent.index(fname))
-            self.recent.insert(0, fname)
-            if len(self.recent) > 15:
-                self.recent = self.recent[:15]
-            self.populate_recent()
+    def addtorecent(self, p):
+        if p in self.recent:
+            self.recent.pop(self.recent.index(p))
+        self.recent.insert(0, p)
+        if len(self.recent) > 15:
+            self.recent = self.recent[:15]
+        self.populate_recent()
+
+    def openFileSDB(self, checked, p=None):
+        if p is None:
+            file, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', str(self.lastdir), 'SDB database (*.sdb);;All Files (*)')
+            p = Path(file)
+        if p.is_file():
+            self.connectDatabase(p)
+            self.lastdir = p
+            self.addtorecent(p)
+        else:
+            QtWidgets.QMessageBox.warning(self, 'File error', 'Database {} does not exists !'.format(p.name))
+            if p in self.recent:
+                self.recent.pop(self.recent.index(p))
+                self.populate_recent()
 
     def newFileSDB(self):
         if self.connected:
@@ -178,28 +192,62 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     self.conn.rollback()
             self.conn.close()
-        fname = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
-        dummy = os.path.splitext(fname)
-        if dummy[1] == '':
-            fname = dummy[0] + '.sdb'
-        self.conn = sqlite3.connect(fname)
-        self.conn.text_factory = str
-        #Create schema of database
-        for sql in SCHEMA.splitlines():
-            self.conn.execute(sql)
-        # Insert metadata
-        self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
-        self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("proj4", "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
-        self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-        self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-        self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-        # Insert default data from template
-        for sql in DEFDATA.splitlines():
-            self.conn.execute(sql)
-        # commit
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
+        if fname:
+            p = Path(fname)
+            if not p.suffix:
+                p = p.with_suffix('.sdb')
+            self.conn = sqlite3.connect(str(p))
+            self.conn.text_factory = str
+            #Create schema of database
+            for sql in SCHEMA.splitlines():
+                self.conn.execute(sql)
+            # Insert metadata
+            self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
+            self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("proj4", "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+            self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+            self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+            self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+            # Insert default data from template
+            for sql in DEFDATA.splitlines():
+                self.conn.execute(sql)
+            # commit
+            self.conn.commit()
+            self.connectDatabase(p)
+            self.changed = False
+            self.addtorecent(p)
+
+    def importSitesFromGPX(self):
+        file, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open GPX file', str(self.lastdir), 'GPX file (*.gpx);;All Files (*)')
+        fname = Path(file)
+        if fname.is_file():
+            NSMAP = {"gpx": "http://www.topografix.com/GPX/1/1"}
+            tree = etree.parse(str(fname))
+            wpts = tree.findall("gpx:wpt", namespaces=NSMAP)
+            sites = []
+            for elem in wpts:
+                sites.append((elem.find('gpx:name', namespaces=NSMAP).text, # name
+                              float(elem.attrib['lon']),                    # x_coord
+                              float(elem.attrib['lat']),                    # y_coord
+                              '',                                           # description
+                              1))                                           # id_units
+            self.importSites(sites)
+
+    def importSitesFromCSV(self):
+        pass
+
+    def importSites(self, data):
+        for rec in data:
+            id = self.conn.execute("INSERT INTO sites (name,x_coord,y_coord,description,id_units) VALUES (?,?,?,?,?)", rec).lastrowid
+            self.sites.appendRow([id,] + list(rec))
         self.conn.commit()
-        self.connectDatabase(fname)
-        self.changed = False
+        self.changed = True
+        #set focus on added item
+        index = self.sortsites.mapFromSource(self.sites.createIndex(0, sitecol['name']))
+        self.siteSelection.setCurrentIndex(index, QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+        self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
+        self.ui.sitesView.setFocus()
+        self.statusBar().showMessage('%d sites successfully imported.' % len(data), 5000)
 
     def infoSDB(self):
         """ Show database info and diagnostics """
@@ -297,10 +345,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def saveAsSDB(self):
         self.saveFileSDB()
-        res = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
-        if res[0]:
-            fname = os.path.splitext(res[0])[0] + '.sdb'
-            nconn = sqlite3.connect(fname)
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
+        if fname:
+            p = Path(fname)
+            if not p.suffix:
+                p = p.with_suffix('.sdb')
+            nconn = sqlite3.connect(str(p))
             nconn.text_factory = str
             #Create schema of database
             for sql in SCHEMA.splitlines():
@@ -342,7 +392,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # commit
             nconn.commit()
             nconn.close()
-            self.statusBar().showMessage('Database successfully exported to %s' % fname, 5000)
+            self.statusBar().showMessage('Database successfully exported to %s' % p.name, 5000)
 
     def checkDatabase(self):
         """ Check and possibly fix database"""
@@ -410,7 +460,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def connectDatabase(self, dbname):
         """ Just create connection to SQLite database. """
         # connect to database
-        self.conn = sqlite3.connect(dbname)
+        self.conn = sqlite3.connect(str(dbname))
         self.conn.text_factory = str
         self.conn.execute("pragma encoding='UTF-8'")
         #self.conn.execute("BEGIN TRANSACTION")
@@ -511,7 +561,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.connected = True
             self.changed = False
-            if self.conn.execute("SELECT value FROM meta WHERE name='version'").fetchall()[0][0] < '3.0.3':
+            dbversion = self.conn.execute("SELECT value FROM meta WHERE name='version'").fetchall()[0][0]
+            if dbversion.split('.')[0] < '3':
                 QtWidgets.QMessageBox.warning(self, 'Version check', 'Your database is created in older version of PySDB.\nConsider database format update.')
         else:
             QtWidgets.QMessageBox.critical(None, 'PySDB database', 'File {} is not valid PySDB database.'.format(dbname), QtWidgets.QMessageBox.Ok)

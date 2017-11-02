@@ -3,8 +3,6 @@
 import sys
 import os
 
-__version__ = '3.0.3'
-
 from pysdb3.mainapp import *
 
 # set things up, and run it. :)
