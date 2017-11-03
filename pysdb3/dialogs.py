@@ -50,8 +50,8 @@ class DialogAddEditSite(QtWidgets.QDialog):
         self.ui.ycoordEdit.setValidator(floatval)
 
         self.ui.sitenameEdit.setFocus()
-        
-    
+
+
     def accept(self):
         # add site accept check
         if self.ui.sitenameEdit.text():
@@ -117,7 +117,7 @@ class DialogAddEditData(QtWidgets.QDialog):
 
         self.ui.azimuthEdit.selectAll()
         self.ui.azimuthEdit.setFocus()
-    
+
     def clear_attach(self):
         self.ui.attachCombo.setCurrentIndex(-1)
 
@@ -341,6 +341,7 @@ class DialogSiteFilter(QtWidgets.QDialog):
     def accept(self):
         QtWidgets.QDialog.accept(self)
 
+
 class DialogDataFilter(QtWidgets.QDialog):
     def __init__(self, model, parent=None):
         super(DialogDataFilter, self).__init__(parent)
@@ -362,3 +363,18 @@ class DialogDataFilter(QtWidgets.QDialog):
     def accept(self):
         QtWidgets.QDialog.accept(self)
 
+
+class ImageView(QtWidgets.QDialog):
+    def __init__(self, p):
+        super().__init__()
+        self.setWindowTitle(p.name)
+        self.setGeometry(10, 10, 640, 480)
+        layout = QtWidgets.QGridLayout(self)
+        # Create widget
+        label = QtWidgets.QLabel(self)
+        label.setSizePolicy(QtWidgets.QSizePolicy.Ignored, QtWidgets.QSizePolicy.Ignored)
+        label.setScaledContents(True)
+        pixmap = QtGui.QPixmap(str(p))
+        # label.setPixmap(pixmap.scaled(640, 480, QtCore.Qt.KeepAspectRatio))
+        label.setPixmap(pixmap)
+        layout.addWidget(label)

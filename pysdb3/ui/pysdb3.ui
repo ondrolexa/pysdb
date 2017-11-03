@@ -254,7 +254,7 @@
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_6">
           <item>
-           <widget class="QPushButton" name="pushButton_11">
+           <widget class="QPushButton" name="pushImageAdd">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -262,12 +262,12 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>PushButton</string>
+             <string>Add</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_12">
+           <widget class="QPushButton" name="pushImageRemove">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -275,7 +275,7 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>PushButton</string>
+             <string>Remove</string>
             </property>
            </widget>
           </item>

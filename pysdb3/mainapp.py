@@ -5,7 +5,8 @@ import logging
 import sqlite3
 from pathlib import Path
 from lxml import etree
-from collections import OrderedDict
+import shutil
+from PIL import Image
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -13,6 +14,10 @@ from .models import *
 from .dialogs import *
 
 __version__ = '3.0.4'
+__about__ = """<b>PySDB - structural database manager v.{}</b>
+               <p>Copyright (c) 2015 Ondrej Lexa.
+               All rights reserved in accordance with
+               GPL v2 or later - NO WARRANTIES!</p>"""
 
 # set up logging to file - see previous section for more details
 logging.basicConfig(level=logging.DEBUG,
@@ -33,12 +38,12 @@ logging.getLogger('').addHandler(console)
 # application:
 
 logger = logging.getLogger('PySDB')
-#To log file only
-#logger.debug('Quick zephyrs blow, vexing daft Jim.')
-#To log on CONSOLE
-#logger.info('How quickly daft jumping zebras vex.')
-#logger.warning('Jail zesty vixen who grabbed pay from quack.')
-#logger.error('The five boxing wizards jump quickly.')
+# To log file only
+# logger.debug('Quick zephyrs blow, vexing daft Jim.')
+# To log on CONSOLE
+# logger.info('How quickly daft jumping zebras vex.')
+# logger.warning('Jail zesty vixen who grabbed pay from quack.')
+# logger.error('The five boxing wizards jump quickly.')
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -72,6 +77,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.pushDataRemove.clicked.connect(lambda: self.check_action(self.removeDataDlg))
         self.ui.pushDataFilter.clicked.connect(lambda: self.check_action(self.filterDataDlg))
         self.ui.dataView.doubleClicked.connect(self.editDataDlg)
+        # imagesview
+        self.ui.pushImageAdd.clicked.connect(lambda: self.check_action(self.addImageDlg))
+        self.ui.pushImageRemove.clicked.connect(lambda: self.check_action(self.removeImageDlg))
+        self.ui.imagesWidget.setViewMode(QtWidgets.QListView.IconMode)
+        self.ui.imagesWidget.setIconSize(QtCore.QSize(120, 120))
+        self.ui.imagesWidget.setSpacing(12)
+        self.ui.imagesWidget.itemDoubleClicked.connect(self.showImage)
         # structureview
         self.ui.pushStructuresAdd.clicked.connect(lambda: self.check_action(self.addStructureDlg))
         self.ui.pushStructuresRemove.clicked.connect(lambda: self.check_action(self.removeStructureDlg))
@@ -90,15 +102,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.pushTagsUp.clicked.connect(lambda: self.check_action(self.moveTagUp))
         self.ui.pushTagsDown.clicked.connect(lambda: self.check_action(self.moveTagDown))
         self.ui.tagsView.doubleClicked.connect(self.editTagDlg)
-        #docks
+        # docks
         self.ui.menuView.addAction(self.ui.dockUnits.toggleViewAction())
         self.ui.menuView.addAction(self.ui.dockStructures.toggleViewAction())
         self.ui.menuView.addAction(self.ui.dockTags.toggleViewAction())
         self.ui.menuView.addAction(self.ui.toolBar.toggleViewAction())
 
         # developing shortcut
-        #self.connectDatabase('datalx.sdb')
-        #logger.debug('Database reading finished.')
+        # self.connectDatabase('datalx.sdb')
+        # logger.debug('Database reading finished.')
         self.connected = False
         self.changed = False
 
@@ -117,6 +129,7 @@ class MainWindow(QtWidgets.QMainWindow):
         settings = QtCore.QSettings('LX', 'pysdb')
         if write:
             settings.setValue("lastdir", str(self.lastdir))
+            settings.setValue("lastimagedir", str(self.lastimagedir))
             settings.beginWriteArray("recent")
             for ix, f in enumerate(self.recent):
                 settings.setArrayIndex(ix)
@@ -124,6 +137,7 @@ class MainWindow(QtWidgets.QMainWindow):
             settings.endArray()
         else:
             self.lastdir = Path(settings.value("lastdir", str(Path.home()), type=str))
+            self.lastimagedir = Path(settings.value("lastimagedir", str(Path.home()), type=str))
             self.recent = []
             n = settings.beginReadArray("recent")
             for ix in range(n):
@@ -138,11 +152,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def about(self):
         """Popup a box with about message."""
-        QtWidgets.QMessageBox.about(self, "About PySDB",
-            """<b>PySDB - structural database manager v.{}</b> 
-               <p>Copyright (c) 2015 Ondrej Lexa.
-               All rights reserved in accordance with
-               GPL v2 or later - NO WARRANTIES!</p>""".format(__version__))
+        QtWidgets.QMessageBox.about(self, "About PySDB", __about__.format(__version__))
 
     def closeEvent(self, event):
         if self.changed:
@@ -176,7 +186,7 @@ class MainWindow(QtWidgets.QMainWindow):
             p = Path(file)
         if p.is_file():
             self.connectDatabase(p)
-            self.lastdir = p
+            self.lastdir = p.parent
             self.addtorecent(p)
         else:
             QtWidgets.QMessageBox.warning(self, 'File error', 'Database {} does not exists !'.format(p.name))
@@ -193,14 +203,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     self.conn.rollback()
             self.conn.close()
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.', 'SDB database (*.sdb)')
         if fname:
             p = Path(fname)
             if not p.suffix:
                 p = p.with_suffix('.sdb')
             self.conn = sqlite3.connect(str(p))
             self.conn.text_factory = str
-            #Create schema of database
+            # Create schema of database
             for sql in SCHEMA.splitlines():
                 self.conn.execute(sql)
             # Insert metadata
@@ -227,11 +237,11 @@ class MainWindow(QtWidgets.QMainWindow):
             wpts = tree.findall("gpx:wpt", namespaces=NSMAP)
             sites = []
             for elem in wpts:
-                sites.append((elem.find('gpx:name', namespaces=NSMAP).text, # name
-                              float(elem.attrib['lon']),                    # x_coord
-                              float(elem.attrib['lat']),                    # y_coord
-                              '',                                           # description
-                              1))                                           # id_units
+                sites.append((elem.find('gpx:name', namespaces=NSMAP).text,   # name
+                              float(elem.attrib['lon']),                      # x_coord
+                              float(elem.attrib['lat']),                      # y_coord
+                              '',                                             # description
+                              1))                                             # id_units
             self.importSites(sites)
 
     def importSitesFromCSV(self):
@@ -240,10 +250,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def importSites(self, data):
         for rec in data:
             id = self.conn.execute("INSERT INTO sites (name,x_coord,y_coord,description,id_units) VALUES (?,?,?,?,?)", rec).lastrowid
-            self.sites.appendRow([id,] + list(rec))
+            self.sites.appendRow([id] + list(rec))
         self.conn.commit()
         self.changed = True
-        #set focus on added item
+        # set focus on added item
         index = self.sortsites.mapFromSource(self.sites.createIndex(0, sitecol['name']))
         self.siteSelection.setCurrentIndex(index, QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
         self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
@@ -346,7 +356,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def saveAsSDB(self):
         self.saveFileSDB()
-        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.','SDB database (*.sdb)')
+        fname, _ = QtWidgets.QFileDialog.getSaveFileName(self, 'New database', '.', 'SDB database (*.sdb)')
         if fname:
             p = Path(fname)
             if not p.suffix:
@@ -387,9 +397,9 @@ class MainWindow(QtWidgets.QMainWindow):
             ins = """INSERT OR REPLACE INTO attach ('id','id_structdata_planar','id_structdata_linear') VALUES (?,?,?)"""
             for row in self.conn.execute('SELECT * FROM attach').fetchall():
                 nconn.execute(ins, (int(row[0]), int(row[1]), int(row[2])))
-            #ins = """INSERT OR REPLACE INTO meta ('id','name','value') VALUES (?,?,?)"""
-            #for row in self.conn.execute('SELECT * FROM meta').fetchall():
-            #    nconn.execute(ins, (int(row[0]), row[1], row[2]))
+            # ins = """INSERT OR REPLACE INTO meta ('id','name','value') VALUES (?,?,?)"""
+            # for row in self.conn.execute('SELECT * FROM meta').fetchall():
+            #     nconn.execute(ins, (int(row[0]), row[1], row[2]))
             # commit
             nconn.commit()
             nconn.close()
@@ -399,7 +409,7 @@ class MainWindow(QtWidgets.QMainWindow):
         """ Check and possibly fix database"""
         ok = True
         # primary select
-        sql = """SELECT 
+        sql = """SELECT
             sites.name as name,
             sites.x_coord as x,
             sites.y_coord as y,
@@ -469,7 +479,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn = sqlite3.connect(str(dbname))
         self.conn.text_factory = str
         self.conn.execute("pragma encoding='UTF-8'")
-        #self.conn.execute("BEGIN TRANSACTION")
+        # self.conn.execute("BEGIN TRANSACTION")
         if self.checkDatabase():
             # Create images folder if doesnot exists
             self.imagedir = dbname.with_name(dbname.stem + '.images')
@@ -481,7 +491,7 @@ class MainWindow(QtWidgets.QMainWindow):
             tlist = []
             for row in self.conn.execute("SELECT id,structure,planar,description,structcode,groupcode FROM structype ORDER BY pos"):
                 tlist.append(list(row))
-            
+
             self.structures = StructureModel(tlist)
 
             # let's add view of the data source we just created:
@@ -499,7 +509,7 @@ class MainWindow(QtWidgets.QMainWindow):
             tlist = []
             for row in self.conn.execute("SELECT id,name,description FROM units ORDER BY pos"):
                 tlist.append(list(row))
-            
+
             self.units = UnitModel(tlist)
 
             # let's add view of the data source we just created:
@@ -514,7 +524,7 @@ class MainWindow(QtWidgets.QMainWindow):
             tlist = []
             for row in self.conn.execute("SELECT id,name,description FROM tags ORDER BY pos"):
                 tlist.append(list(row) + [QtCore.Qt.Unchecked, ])
-            
+
             self.tags = TagModel(tlist)
 
             # let's add view of the data source we just created:
@@ -530,7 +540,7 @@ class MainWindow(QtWidgets.QMainWindow):
             tlist = []
             for row in self.conn.execute("SELECT id,name,x_coord,y_coord,description,id_units FROM sites ORDER BY id"):
                 tlist.append(list(row))
-            
+
             self.sites = SiteModel(tlist)
 
             self.sortsites =  QtCore.QSortFilterProxyModel(self)
@@ -540,15 +550,15 @@ class MainWindow(QtWidgets.QMainWindow):
             # let's add view of the data source we just created:
             self.ui.sitesView.setModel(self.sortsites)
             self.ui.sitesView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-            #self.ui.sitesView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-            #self.ui.sitesView.horizontalHeader().setStretchLastSection(True)
-            #self.ui.sitesView.verticalHeader().hide()
+            # self.ui.sitesView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+            # self.ui.sitesView.horizontalHeader().setStretchLastSection(True)
+            # self.ui.sitesView.verticalHeader().hide()
             self.ui.sitesView.setColumnHidden(sitecol['id'], True)
             self.ui.sitesView.setColumnHidden(sitecol['x'], True)
             self.ui.sitesView.setColumnHidden(sitecol['y'], True)
             self.ui.sitesView.setColumnHidden(sitecol['desc'], True)
             self.ui.sitesView.setColumnHidden(sitecol['id_units'], True)
-            #self.ui.sitesView.verticalHeader().setDefaultSectionSize(22)
+            # self.ui.sitesView.verticalHeader().setDefaultSectionSize(22)
             self.ui.sitesView.setSortingEnabled(True)
             self.ui.sitesView.sortByColumn(sitecol['name'], QtCore.Qt.AscendingOrder)
 
@@ -577,23 +587,22 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(None, 'PySDB database', 'File {} is not valid PySDB database.'.format(dbname), QtWidgets.QMessageBox.Ok)
             self.conn.close()
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # SITE VIEW
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def addSiteDlg(self):
         """ Open site dialog and retrieve data. """
         dlg = DialogAddEditSite(self.units, 'Add')
         if dlg.exec_():
             id = self.db_addSite(dlg.data[1:])
-            self.sites.appendRow([id,] + dlg.data[1:])
-            #set focus on added item
-            index = self.sortsites.mapFromSource(self.sites.createIndex(self.sites.rowCount()-1,sitecol['name']))
+            self.sites.appendRow([id] + dlg.data[1:])
+            # set focus on added item
+            index = self.sortsites.mapFromSource(self.sites.createIndex(self.sites.rowCount() - 1, sitecol['name']))
             self.siteSelection.setCurrentIndex(index, QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
             self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
-            #self.ui.sitesView.scrollToBottom()
+            # self.ui.sitesView.scrollToBottom()
             self.ui.sitesView.setFocus()
 
-    
     def editSiteDlg(self, index = None):
         """ Open site dialog to edit data. """
         # method is invoked by double-click (index passed) or by button action (no index passed)
@@ -626,15 +635,15 @@ class MainWindow(QtWidgets.QMainWindow):
                 sindex = [self.sortsites.mapToSource(index) for index in indexlist]
                 rows = [index.row() for index in sindex]
                 count = 0
-                for dummy,index in sorted(zip(rows,sindex), reverse=True):
+                for dummy, index in sorted(zip(rows, sindex), reverse=True):
                     count += self.db_removeSite(self.sites.row2id[index.row()])
                     self.sites.removeRow(index)
-                #set focus on remembered position
+                # set focus on remembered position
                 if row >= self.sites.rowCount():
-                    row = self.sites.rowCount()-1
-                self.siteSelection.setCurrentIndex(self.sites.index(row,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+                    row = self.sites.rowCount() - 1
+                self.siteSelection.setCurrentIndex(self.sites.index(row, sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
                 self.ui.sitesView.setFocus()
-                self.statusBar().showMessage('%d sites and %d data have been deleted.' % (len(rows), count),5000)
+                self.statusBar().showMessage('%d sites and %d data have been deleted.' % (len(rows), count), 5000)
             if reply == QtWidgets.QMessageBox.Save:
                 allsites = [item[:2] for item in self.sites._items]
                 selsites = [self.sites.getRow(self.sortsites.mapToSource(index))[:2] for index in indexlist]
@@ -642,7 +651,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 ids, sites = zip(*dessites)
                 # sort it
                 sites, ids = (list(t) for t in zip(*sorted(zip(sites, ids))))
-                dessite, okPressed = QtWidgets.QInputDialog.getItem(self, "Select site","Sitename:", sites, 0, False)
+                dessite, okPressed = QtWidgets.QInputDialog.getItem(self, "Select site", "Sitename:", sites, 0, False)
                 if okPressed and dessite:
                     desid = ids[sites.index(dessite)]
                     # move data
@@ -653,37 +662,37 @@ class MainWindow(QtWidgets.QMainWindow):
                     sindex = [self.sortsites.mapToSource(index) for index in indexlist]
                     rows = [index.row() for index in sindex]
                     count = 0
-                    for dummy,index in sorted(zip(rows,sindex), reverse=True):
+                    for dummy, index in sorted(zip(rows, sindex), reverse=True):
                         count += self.db_removeSite(self.sites.row2id[index.row()])
                         self.sites.removeRow(index)
-                    #set focus on destination site
+                    # set focus on destination site
                     index = self.sortsites.mapFromSource(self.sites.createIndex(self.sites.id2row[desid], sitecol['name']))
                     self.siteSelection.setCurrentIndex(index, QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
                     self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
                     self.ui.sitesView.setFocus()
 
-                    #self.siteSelection.setCurrentIndex(self.sites.index(self.sites.id2row[desid],sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
-                    #self.ui.sitesView.setFocus()
-                    self.statusBar().showMessage('%d sites and %d data have been deleted.' % (len(rows), count),5000)
+                    # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.id2row[desid],sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+                    # self.ui.sitesView.setFocus()
+                    self.statusBar().showMessage('%d sites and %d data have been deleted.' % (len(rows), count), 5000)
 
     def filterSiteDlg(self):
         """ Filter sites """
         self.ui.pushSiteFilter.setChecked(not self.ui.pushSiteFilter.isChecked())
         if self.sitefilterdlg.exec_():
             if self.sitefilterdlg.ui.radioUnit.isChecked():
-                self.sortsites.setFilterRegExp(QtCore.QRegExp('^'+str(self.units.row2id[self.sitefilterdlg.ui.unitCombo.currentIndex()])+'$'))
+                self.sortsites.setFilterRegExp(QtCore.QRegExp('^' + str(self.units.row2id[self.sitefilterdlg.ui.unitCombo.currentIndex()]) + '$'))
                 self.sortsites.setFilterKeyColumn(sitecol['id_units'])
                 self.ui.pushSiteFilter.setChecked(True)
-                self.statusBar().showMessage('Sites filtered to unit %s' % self.sitefilterdlg.ui.unitCombo.currentText(),5000)
+                self.statusBar().showMessage('Sites filtered to unit %s' % self.sitefilterdlg.ui.unitCombo.currentText(), 5000)
             elif self.sitefilterdlg.ui.radioName.isChecked():
                 self.sortsites.setFilterWildcard('*' + self.sitefilterdlg.ui.nameEdit.text() + '*')
                 self.sortsites.setFilterKeyColumn(sitecol['name'])
                 self.ui.pushSiteFilter.setChecked(True)
-                self.statusBar().showMessage('Sites filtered to name contains %s' % self.sitefilterdlg.ui.nameEdit.text(),5000)
+                self.statusBar().showMessage('Sites filtered to name contains %s' % self.sitefilterdlg.ui.nameEdit.text(), 5000)
             else:
                 self.sortsites.setFilterRegExp('')
                 self.ui.pushSiteFilter.setChecked(False)
-                self.statusBar().showMessage('All sites shown',5000)
+                self.statusBar().showMessage('All sites shown', 5000)
 
     def db_addSite(self, data):
         """ Add site data database. """
@@ -693,7 +702,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def db_updateSite(self, data):
         """ Update site data in database. """
         self.changed = True
-        self.conn.execute("UPDATE sites SET name=?, x_coord=?, y_coord=?, description=?, id_units=? WHERE id=?", data[1:]+data[:1])
+        self.conn.execute("UPDATE sites SET name=?, x_coord=?, y_coord=?, description=?, id_units=? WHERE id=?", data[1:] + data[:1])
 
     def db_removeSite(self, id):
         """ Remove site data in database. """
@@ -705,16 +714,11 @@ class MainWindow(QtWidgets.QMainWindow):
         # delete from site table
         self.conn.execute("DELETE FROM sites WHERE id=?", (id,))
         self.changed = True
-        return count   
+        return count
 
     def siteselChanged(self, selected=None, deselected=None):
         # read selected data from structdata table
         tlist = []
-        # populate images
-        self.ui.imagesWidget.clear()
-        self.ui.imagesWidget.setViewMode(QtWidgets.QListView.IconMode)
-        self.ui.imagesWidget.setIconSize(QtCore.QSize(120, 120))
-        self.ui.imagesWidget.setSpacing(12)
         for site in self.siteSelection.selectedRows():
             for row in self.conn.execute("SELECT structdata.id,structdata.id_sites,structdata.id_structype,azimuth,inclination,structype.structure,structdata.description FROM structdata Inner Join structype ON structype.id = structdata.id_structype WHERE structdata.id_sites=? ORDER BY structdata.id",(site.data(),)):
                 tags = []
@@ -723,13 +727,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 nrow = list(row)
                 nrow.append(",".join(tags))
                 tlist.append(nrow)
-            for row in self.conn.execute("SELECT id,filename,description FROM images WHERE id_sites=?", (site.data(),)):
-                item = QtWidgets.QListWidgetItem(row[2])
-                icon = QtGui.QIcon(row[1])
-                item.setIcon(icon)
-                #item.setSizeHint(QtCore.QSize(120, 120))
-                self.ui.imagesWidget.addItem(item)
-
+        self.sitereadImages()
+        # read data
         self.data = DataModel(tlist)
         self.filterdata =  QtCore.QSortFilterProxyModel(self)
         self.filterdata.setSourceModel(self.data)
@@ -750,7 +749,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.do_filterdata()
         self.show()
-        
+
     def siteSorting(self, logindex):
         # cycle 4 sort types
         self.sortorder = (self.sortorder + 1) % 4
@@ -759,9 +758,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.sortorder == 3:
             self.ui.sitesView.sortByColumn(sitecol['id'], QtCore.Qt.DescendingOrder)
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # DATA VIEW
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
 
     def addDataDlg(self):
         """ Open data dialog and retrieve data. """
@@ -788,7 +787,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.dataSelection.setCurrentIndex(self.data.index(self.data.rowCount()-1,datacol['azi']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
                 self.ui.dataView.scrollToBottom()
                 self.ui.dataView.setFocus()
-    
+
     def editDataDlg(self, index = None):
         """ Open data dialog to edit data. """
         # method is invoked by double-click (index passed) or by button action (no index passed)
@@ -907,9 +906,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def dataselChanged(self, selected, deselected):
         pass
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # STRUCTURE VIEW
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def addStructureDlg(self):
         """ Open add structure dialog. """
         dlg = DialogAddEditStructure('Add')
@@ -924,7 +923,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage('Structure %s already exists.' % dlg.data[structurecol['structure']], 5000)
             #self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
             self.ui.structuresView.setFocus()
-    
+
     def editStructureDlg(self, index):
         """ Open edit structure dialog. """
         dlg = DialogAddEditStructure('Edit', self.structures.getRow(index))
@@ -1017,9 +1016,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.changed = True
 
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # UNIT VIEW
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def addUnitDlg(self):
         """ Open add unit dialog. """
         dlg = DialogAddEditUnit('Add')
@@ -1034,7 +1033,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage('Unit %s already exists.' % dlg.data[unitcol['name']], 5000)
             #self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
             self.ui.unitsView.setFocus()
-    
+
     def editUnitDlg(self, index):
         """ Open edit unit dialog. """
         dlg = DialogAddEditUnit('Edit', self.units.getRow(index))
@@ -1073,7 +1072,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.statusBar().showMessage('Unit %s, %d sites and %d data have been deleted.' % (todel[unitcol['name']], scount, dcount), 5000)
             else:
                 QtWidgets.QMessageBox.warning(self, 'Delete unit', 'There must be at least one unit defined in database!')
-  
+
     def moveUnitUp(self):
         """ Move selected unit up. """
         indexlist = self.unitSelection.selectedRows()
@@ -1101,7 +1100,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.units.appendRow(cache, index, 1)
                 self.ui.unitsView.selectRow(index.row() + 1)
                 self.ui.unitsView.setFocus()
-          
+
     def db_addUnit(self, data):
         """ Add unit to database. """
         pos = self.conn.execute("SELECT MAX(pos)+1 FROM units").fetchall()[0][0]
@@ -1109,7 +1108,7 @@ class MainWindow(QtWidgets.QMainWindow):
             pos = 1
         self.changed = True
         return self.conn.execute("INSERT OR IGNORE INTO units (pos, name, description) VALUES (?,?,?)", (pos, data[unitcol['name']], data[unitcol['desc']]))
-        
+
 
     def db_updateUnit(self, data):
         """ Update unit in database. """
@@ -1135,9 +1134,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("UPDATE units SET pos=? WHERE id=?", (apos, bid))
         self.changed = True
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     # TAG VIEW
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def addTagDlg(self):
         """ Open add tag dialog. """
         dlg = DialogAddEditTag('Add')
@@ -1152,7 +1151,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage('Tag %s already exists.' % dlg.data[tagcol['name']], 5000)
             #self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
             self.ui.tagsView.setFocus()
-    
+
     def editTagDlg(self, index):
         """ Open edit tag dialog. """
         dlg = DialogAddEditTag('Edit', self.tags.getRow(index))
@@ -1214,7 +1213,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def db_addTag(self, data):
         """ Add tag to database. """
         pos = self.conn.execute("SELECT MAX(pos)+1 FROM tags").fetchall()[0][0]
-        if pos == None:
+        if pos is None:
             pos = 1
         self.changed = True
         return self.conn.execute("INSERT OR IGNORE INTO tags (pos, name, description) VALUES (?,?,?)", (pos, data[tagcol['name']], data[tagcol['desc']]))
@@ -1236,3 +1235,52 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (apos, bid))
         self.changed = True
 
+    # ----------------------------------------------------------------------
+    # IMAGE VIEW
+    # ----------------------------------------------------------------------
+    def sitereadImages(self):
+        # populate images
+        self.ui.imagesWidget.clear()
+        for site in self.siteSelection.selectedRows():
+            for fname, desc in self.conn.execute("SELECT filename, description FROM images WHERE id_sites=?", (site.data(),)):
+                item = QtWidgets.QListWidgetItem(desc)
+                p = self.imagedir.joinpath('thumbnails', fname)
+                icon = QtGui.QIcon(str(p))
+                item.setIcon(icon)
+                item.setData(QtCore.Qt.UserRole, self.imagedir.joinpath(fname))
+                # item.setSizeHint(QtCore.QSize(120, 120))
+                self.ui.imagesWidget.addItem(item)
+
+    def addImageDlg(self):
+        """ Add image """
+        indexlist = self.siteSelection.selectedRows()
+        if len(indexlist) == 1:
+            files, _ = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open images(s)', str(self.lastimagedir), 'Images (*.png *.xpm *.jpg);;All Files (*)')
+            if files:
+                id = indexlist[0].data()
+                for file in files:
+                    fp = Path(file)
+                    self.lastimagedir = fp.parent
+                    tp = self.imagedir.joinpath(fp.name)
+                    thp = self.imagedir.joinpath('thumbnails', fp.name)
+                    shutil.copy(str(fp), str(tp))
+                    im = Image.open(str(tp))
+                    im.thumbnail((120, 120))
+                    im.save(str(thp))
+                    self.db_addImage(id, fp.name, fp.stem)
+                self.sitereadImages()
+        else:
+            QtWidgets.QMessageBox.warning(self, 'Add image error', 'Only single site must be selected to add image.')
+
+    def db_addImage(self, idsite, filename, description):
+        self.conn.execute("INSERT INTO images (id_sites, filename, description) VALUES (?,?,?)", (idsite, filename, description))
+        self.changed = True
+
+    def removeImage(self):
+        """ Remove image """
+        pass
+
+    def showImage(self, item):
+        iv = ImageView(item.data(QtCore.Qt.UserRole))
+        iv.show()
+        iv.exec_()
