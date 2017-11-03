@@ -1276,9 +1276,15 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("INSERT INTO images (id_sites, filename, description) VALUES (?,?,?)", (idsite, filename, description))
         self.changed = True
 
-    def removeImage(self):
+    def removeImageDlg(self):
         """ Remove image """
-        pass
+        item = self.ui.imagesWidget.currentItem()
+        if item is not None:
+            tp = item.data(QtCore.Qt.UserRole)
+            thp = tp.parent.joinpath('thumbnails', tp.name)
+            os.remove(str(tp))
+            os.remove(str(thp))
+            # delete from database
 
     def showImage(self, item):
         iv = ImageView(item.data(QtCore.Qt.UserRole))
