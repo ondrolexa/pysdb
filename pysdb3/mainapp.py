@@ -63,8 +63,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.actionSave.triggered.connect(lambda: self.check_action(self.saveFileSDB))
         self.ui.actionSave_as.triggered.connect(lambda: self.check_action(self.saveAsSDB))
         self.ui.actionQuit.triggered.connect(self.close)
-        self.ui.actionFrom_GPX.triggered.connect(self.importSitesFromGPX)
-        self.ui.actionFrom_CSV.triggered.connect(self.importSitesFromCSV)
+        self.ui.actionFrom_GPX.triggered.connect(lambda: self.check_action(self.importSitesFromGPX))
+        self.ui.actionFrom_CSV.triggered.connect(lambda: self.check_action(self.importSitesFromCSV))
+        self.ui.actionFlush_images.triggered.connect(lambda: self.check_action(self.flushImages))
         # siteview
         self.ui.pushSiteAdd.clicked.connect(lambda: self.check_action(self.addSiteDlg))
         self.ui.pushSiteEdit.clicked.connect(lambda: self.check_action(self.editSiteDlg))
@@ -198,8 +199,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.connected:
             if self.changed:
                 if QtWidgets.QMessageBox.question(self, 'Question', 'Do you want to save all changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
-                    self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-                    self.conn.commit()
+                    self.dbcommit()
                 else:
                     self.conn.rollback()
             self.conn.close()
@@ -223,7 +223,7 @@ class MainWindow(QtWidgets.QMainWindow):
             for sql in DEFDATA.splitlines():
                 self.conn.execute(sql)
             # commit
-            self.conn.commit()
+            self.dbcommit()
             self.connectDatabase(p)
             self.changed = False
             self.addtorecent(p)
@@ -251,7 +251,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for rec in data:
             id = self.conn.execute("INSERT INTO sites (name,x_coord,y_coord,description,id_units) VALUES (?,?,?,?,?)", rec).lastrowid
             self.sites.appendRow([id] + list(rec))
-        self.conn.commit()
+        self.dbcommit()
         self.changed = True
         # set focus on added item
         index = self.sortsites.mapFromSource(self.sites.createIndex(0, sitecol['name']))
@@ -350,9 +350,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def saveFileSDB(self):
         if self.changed:
             if QtWidgets.QMessageBox.question(self, 'Question', 'Do you want to save all current changes?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
-                self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-                self.conn.commit()
-                self.changed = False
+                self.dbcommit()
 
     def saveAsSDB(self):
         self.saveFileSDB()
@@ -470,7 +468,7 @@ class MainWindow(QtWidgets.QMainWindow):
             it = self.conn.execute("SELECT name FROM sqlite_master WHERE name='images'").fetchall()
             if not it:
                 QtWidgets.QMessageBox.warning(self, 'Database images table error', 'Images table does not exists !\nDefault one will be created.')
-                self.conn.execute("CREATE TABLE images (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, filename text NOT NULL UNIQUE, description text);")
+                self.conn.execute("CREATE TABLE images (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, removed integer DEFAULT 0, filename text NOT NULL UNIQUE, description text);")
         return ok
 
     def connectDatabase(self, dbname):
@@ -484,6 +482,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # Create images folder if doesnot exists
             self.imagedir = dbname.with_name(dbname.stem + '.images')
             self.imagedir.mkdir(exist_ok=True, parents=True)
+            self.imagedir.joinpath('thumbnails').mkdir(exist_ok=True, parents=True)
             # Populate models and views from database.
             # -----------------------------------
             # read structures table
@@ -586,6 +585,11 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             QtWidgets.QMessageBox.critical(None, 'PySDB database', 'File {} is not valid PySDB database.'.format(dbname), QtWidgets.QMessageBox.Ok)
             self.conn.close()
+
+    def dbcommit(self):
+        self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+        self.conn.commit()
+        self.changed = False
 
     # ----------------------------------------------------------------------
     # SITE VIEW
@@ -1242,12 +1246,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # populate images
         self.ui.imagesWidget.clear()
         for site in self.siteSelection.selectedRows():
-            for fname, desc in self.conn.execute("SELECT filename, description FROM images WHERE id_sites=?", (site.data(),)):
+            for id, fname, desc in self.conn.execute("SELECT id, filename, description FROM images WHERE id_sites=? AND removed=0", (site.data(),)):
                 item = QtWidgets.QListWidgetItem(desc)
                 p = self.imagedir.joinpath('thumbnails', fname)
                 icon = QtGui.QIcon(str(p))
                 item.setIcon(icon)
-                item.setData(QtCore.Qt.UserRole, self.imagedir.joinpath(fname))
+                item.setData(QtCore.Qt.UserRole, id)
                 # item.setSizeHint(QtCore.QSize(120, 120))
                 self.ui.imagesWidget.addItem(item)
 
@@ -1263,30 +1267,74 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.lastimagedir = fp.parent
                     tp = self.imagedir.joinpath(fp.name)
                     thp = self.imagedir.joinpath('thumbnails', fp.name)
-                    shutil.copy(str(fp), str(tp))
-                    im = Image.open(str(tp))
-                    im.thumbnail((120, 120))
-                    im.save(str(thp))
-                    self.db_addImage(id, fp.name, fp.stem)
+                    if tp.exists() and thp.exists():
+                        QtWidgets.QMessageBox.warning(self, 'Image exists', 'Image {} is already in database.'.format(fp.name))
+                    else:
+                        shutil.copy(str(fp), str(tp))
+                        im = Image.open(str(tp))
+                        im.thumbnail((120, 120))
+                        im.save(str(thp))
+                        self.db_addImage(id, fp.name, fp.stem)
                 self.sitereadImages()
         else:
             QtWidgets.QMessageBox.warning(self, 'Add image error', 'Only single site must be selected to add image.')
 
     def db_addImage(self, idsite, filename, description):
-        self.conn.execute("INSERT INTO images (id_sites, filename, description) VALUES (?,?,?)", (idsite, filename, description))
-        self.changed = True
+        try:
+            self.conn.execute("INSERT INTO images (id_sites, filename, description) VALUES (?,?,?)", (idsite, filename, description))
+            self.changed = True
+        except:
+            pass
 
     def removeImageDlg(self):
         """ Remove image """
         item = self.ui.imagesWidget.currentItem()
         if item is not None:
-            tp = item.data(QtCore.Qt.UserRole)
-            thp = tp.parent.joinpath('thumbnails', tp.name)
-            os.remove(str(tp))
-            os.remove(str(thp))
-            # delete from database
+            self.conn.execute("UPDATE images SET removed=1 WHERE id=?", (item.data(QtCore.Qt.UserRole),))
+            self.changed = True
+            self.sitereadImages()
 
     def showImage(self, item):
-        iv = ImageView(item.data(QtCore.Qt.UserRole))
-        iv.show()
-        iv.exec_()
+        fname = self.conn.execute("SELECT filename FROM images WHERE id=?", (item.data(QtCore.Qt.UserRole),)).fetchall()[0][0]
+        #iv = ImageView(self.imagedir.joinpath(fname))
+        #iv.show()
+        #iv.exec_()
+        dlg = DialogImageView(self.imagedir.joinpath(fname))
+        dlg.exec_()
+
+    def flushImages(self):
+        fl = False
+        dbrem = self.conn.execute("SELECT id, filename FROM images WHERE removed=1").fetchall()
+        if len(dbrem) > 0:
+            if QtWidgets.QMessageBox.question(self, 'Flush removed images', 'Do you want to flush {} removed images and commit all changes?'.format(len(dbrem)), QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                for id, fname in dbrem:
+                    p = self.imagedir.joinpath(fname)
+                    if p.is_file():
+                        os.remove(str(p))
+                    ph = self.imagedir.joinpath('thumbnails', fname)
+                    if ph.is_file():
+                        os.remove(str(ph))
+                self.dbcommit()
+                self.statusBar().showMessage('Database flushed.', 5000)
+                fl = True
+        # search for orphans
+        imfiles = [file for file in self.imagedir.glob('*') if file.is_file()]
+        thfiles = [file for file in self.imagedir.joinpath('thumbnails').glob('*') if file.is_file()]
+        for id, fname in self.conn.execute("SELECT id, filename FROM images").fetchall():
+            p = self.imagedir.joinpath(fname)
+            ph = self.imagedir.joinpath('thumbnails', fname)
+            if p in imfiles and ph in thfiles:
+                imfiles.remove(p)
+                thfiles.remove(ph)
+        res = '\n'.join(['Files in images directory with no record in database: {}'.format(len(imfiles)),
+                         'Files in thumbnails directory with no record in database: {}'.format(len(thfiles))])
+        if len(imfiles) > 0 or len(thfiles) > 0:
+            if QtWidgets.QMessageBox.question(self, 'Flush image files', 'Do you want to delete following orphan files?\n{}'.format(res), QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                for p in imfiles:
+                    os.remove(str(p))
+                for ph in thfiles:
+                    os.remove(str(ph))
+                self.statusBar().showMessage('Orphaned files removed.', 5000)
+                fl = True
+        if not fl:
+            self.statusBar().showMessage('Nothing to flush.', 5000)

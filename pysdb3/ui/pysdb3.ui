@@ -180,6 +180,9 @@
         </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_5">
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
           <item>
            <widget class="QPushButton" name="pushDataEdit">
             <property name="sizePolicy">
@@ -253,6 +256,9 @@
         </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_6">
+          <property name="bottomMargin">
+           <number>6</number>
+          </property>
           <item>
            <widget class="QPushButton" name="pushImageAdd">
             <property name="sizePolicy">
@@ -362,6 +368,7 @@
      <addaction name="actionFrom_CSV"/>
     </widget>
     <addaction name="menuImport_sites"/>
+    <addaction name="actionFlush_images"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -972,6 +979,11 @@
   <action name="actionFrom_CSV">
    <property name="text">
     <string>From CSV</string>
+   </property>
+  </action>
+  <action name="actionFlush_images">
+   <property name="text">
+    <string>Flush images</string>
    </property>
   </action>
  </widget>
