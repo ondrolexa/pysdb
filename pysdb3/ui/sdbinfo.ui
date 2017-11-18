@@ -49,12 +49,12 @@
      <item>
       <widget class="QLabel" name="label">
        <property name="text">
-        <string>Proj4:</string>
+        <string>Coordinate reference system:</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QPlainTextEdit" name="proj4Edit"/>
+      <widget class="QPlainTextEdit" name="crsEdit"/>
      </item>
     </layout>
    </item>

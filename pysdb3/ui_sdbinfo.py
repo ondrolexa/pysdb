@@ -35,9 +35,9 @@ class Ui_DialogSDBInfo(object):
         self.label = QtWidgets.QLabel(DialogSDBInfo)
         self.label.setObjectName("label")
         self.verticalLayout_3.addWidget(self.label)
-        self.proj4Edit = QtWidgets.QPlainTextEdit(DialogSDBInfo)
-        self.proj4Edit.setObjectName("proj4Edit")
-        self.verticalLayout_3.addWidget(self.proj4Edit)
+        self.crsEdit = QtWidgets.QPlainTextEdit(DialogSDBInfo)
+        self.crsEdit.setObjectName("crsEdit")
+        self.verticalLayout_3.addWidget(self.crsEdit)
         self.verticalLayout_2.addLayout(self.verticalLayout_3)
         self.buttonBox = QtWidgets.QDialogButtonBox(DialogSDBInfo)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
@@ -58,5 +58,5 @@ class Ui_DialogSDBInfo(object):
         _translate = QtCore.QCoreApplication.translate
         DialogSDBInfo.setWindowTitle(_translate("DialogSDBInfo", "Database information"))
         self.label_5.setText(_translate("DialogSDBInfo", "Info:"))
-        self.label.setText(_translate("DialogSDBInfo", "Proj4:"))
+        self.label.setText(_translate("DialogSDBInfo", "Coordinate reference system:"))
 

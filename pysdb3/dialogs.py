@@ -277,25 +277,25 @@ class DialogAddEditTag(QtWidgets.QDialog):
             return
 
 class DialogSDBInfo(QtWidgets.QDialog):
-    def __init__(self, info, proj4, parent=None):
+    def __init__(self, info, crs, parent=None):
         super(DialogSDBInfo, self).__init__(parent)
 
         self.ui = Ui_DialogSDBInfo()
         self.ui.setupUi(self)
-        self.proj4 = proj4
+        self.crs = crs
         # populate widgets
         self.ui.infoEdit.setPlainText(info)
-        self.ui.proj4Edit.setPlainText(proj4)
-        self.ui.proj4Edit.setFocus()
+        self.ui.crsEdit.setPlainText(crs)
+        self.ui.crsEdit.setFocus()
 
     def accept(self):
         # add structure accept check
-        if self.ui.proj4Edit.toPlainText():
-            self.proj4 = self.ui.proj4Edit.toPlainText().replace('\n', ' ').replace('\r', '')
+        if self.ui.crsEdit.toPlainText():
+            self.crs = self.ui.crsEdit.toPlainText().replace('\n', ' ').replace('\r', '')
             QtWidgets.QDialog.accept(self)
         else:
-            QtGui.QMessageBox.warning(self, 'Database info error', 'Proj4 info cannot be empty!')
-            self.ui.proj4Edit.setFocus()
+            QtGui.QMessageBox.warning(self, 'Database info error', 'CRS cannot be empty!')
+            self.ui.crsEdit.setFocus()
             return
 
 class DialogSaveDiscard(QtWidgets.QDialog):

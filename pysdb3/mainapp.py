@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from .models import *
 from .dialogs import *
 
-__version__ = '3.0.4'
+__version__ = '3.0.5'
 __about__ = """<b>PySDB - structural database manager v.{}</b>
                <p>Copyright (c) 2015 Ondrej Lexa.
                All rights reserved in accordance with
@@ -215,7 +215,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.conn.execute(sql)
             # Insert metadata
             self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
-            self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("proj4", "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+            self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", "EPSG:4326"))
             self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
@@ -335,17 +335,18 @@ class MainWindow(QtWidgets.QMainWindow):
             if len(res) > 1:
                 info += "Error: More than one 'accessed' metavalues.\n"
         try:
-            res = self.conn.execute("SELECT value FROM meta WHERE name='proj4'").fetchall()
+            res = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()
         except:
-            proj4 = 'Error during SELECT value FROM meta WHERE name="proj4": {}\n'.format(sys.exc_info()[1])
+            crs = 'Error during SELECT value FROM meta WHERE name="crs": {}\n'.format(sys.exc_info()[1])
         else:
-            proj4 = res[0][0]
+            crs = res[0][0]
             if len(res) > 1:
-                info += "Error: More than one 'proj4' metavalues.\n"
-        dlg = DialogSDBInfo(info, proj4)
+                info += "Error: More than one 'crs' metavalues.\n"
+        dlg = DialogSDBInfo(info, crs)
         if dlg.exec_():
-            if proj4 != dlg.proj4:
-                self.conn.execute("UPDATE meta SET value=? WHERE name='proj4'", (dlg.proj4,))
+            if crs != dlg.crs:
+                self.conn.execute("UPDATE meta SET value=? WHERE name='crs'", (dlg.crs,))
+                self.changed = True
 
     def saveFileSDB(self):
         if self.changed:
@@ -361,12 +362,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 p = p.with_suffix('.sdb')
             nconn = sqlite3.connect(str(p))
             nconn.text_factory = str
-            #Create schema of database
+            # Create schema of database
             for sql in SCHEMA.splitlines():
                 nconn.execute(sql)
             # Insert metadata
+            crs = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()[0][0]
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("proj4", "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", crs))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
@@ -439,7 +441,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.warning(self, 'Database metadata table error', 'Metadata table does not exists !\nDefault one will be created.')
                 self.conn.execute("CREATE TABLE meta (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, name varchar(16) NOT NULL UNIQUE, value text)")
                 self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
-                self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("proj4", "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+                self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", "EPSG:4326"))
                 self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
                 self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
                 self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
@@ -449,9 +451,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 val = self.conn.execute("SELECT value FROM meta WHERE name='version'").fetchall()
                 if not val:
                     self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
-                val = self.conn.execute("SELECT value FROM meta WHERE name='proj4'").fetchall()
+                val = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()
                 if not val:
-                    self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("proj4", "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"))
+                    val2 = self.conn.execute("SELECT value FROM meta WHERE name='proj4'").fetchall()
+                    if not val2:
+                        self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", "EPSG:4326"))
+                    else:
+                        self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", val2[0][0]))
                 val = self.conn.execute("SELECT value FROM meta WHERE name='created'").fetchall()
                 if not val:
                     self.conn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
@@ -587,7 +593,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.conn.close()
 
     def dbcommit(self):
-        self.conn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+        self.conn.execute("REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
         self.conn.commit()
         self.changed = False
 
