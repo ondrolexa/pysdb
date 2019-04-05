@@ -46,6 +46,7 @@ class DialogAddEditSite(QtWidgets.QDialog):
         self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditSite", title))
         # set validation rules
         floatval = QtGui.QDoubleValidator()
+        floatval.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
         floatval.setNotation(QtGui.QDoubleValidator.StandardNotation)
         self.ui.xcoordEdit.setValidator(floatval)
         self.ui.ycoordEdit.setValidator(floatval)
@@ -63,7 +64,7 @@ class DialogAddEditSite(QtWidgets.QDialog):
             self.data[sitecol['id_units']] = self.ui.unitCombo.model().row2id[self.ui.unitCombo.currentIndex()]
             QtWidgets.QDialog.accept(self)
         else:
-            QtGui.QMessageBox.warning(self, 'Add site error', 'Sitename cannot be empty!')
+            QtWidgets.QMessageBox.warning(self, 'Add site error', 'Sitename cannot be empty!')
             self.ui.sitenameEdit.setFocus()
             return
 
@@ -110,8 +111,10 @@ class DialogAddEditData(QtWidgets.QDialog):
         self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditData", title))
         # set validation rules
         self.azival = QtGui.QDoubleValidator(0.0,360.0,1000)
+        self.azival.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
         self.azival.setNotation(QtGui.QDoubleValidator.StandardNotation)
         self.incval = QtGui.QDoubleValidator(0.0,90.0,1000)
+        self.incval.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
         self.incval.setNotation(QtGui.QDoubleValidator.StandardNotation)
         self.ui.azimuthEdit.setValidator(self.azival)
         self.ui.inclinationEdit.setValidator(self.incval)
@@ -145,13 +148,13 @@ class DialogAddEditData(QtWidgets.QDialog):
         if self.azival.validate(self.ui.azimuthEdit.text(), 0)[0] == QtGui.QValidator.Acceptable:
             self.data[datacol['azi']] = float(self.ui.azimuthEdit.text())
         else:
-            QtGui.QMessageBox.warning(self, 'Add site error', 'Azimuth must be number between 0-360.')
+            QtWidgets.QMessageBox.warning(self, 'Add site error', 'Azimuth must be number between 0-360.')
             self.ui.azimuthEdit.setFocus()
             return
         if self.incval.validate(self.ui.inclinationEdit.text(), 0)[0] == QtGui.QValidator.Acceptable:
             self.data[datacol['inc']] = float(self.ui.inclinationEdit.text())
         else:
-            QtGui.QMessageBox.warning(self, 'Add site error', 'Inclinations must be number between 0-90.')
+            QtWidgets.QMessageBox.warning(self, 'Add site error', 'Inclinations must be number between 0-90.')
             self.ui.inclinationEdit.setFocus()
             return
         self.data[datacol['desc']] = self.ui.descriptionEdit.toPlainText()
@@ -206,7 +209,7 @@ class DialogAddEditStructure(QtWidgets.QDialog):
                 self.data[structurecol['planar']] = 0
             QtWidgets.QDialog.accept(self)
         else:
-            QtGui.QMessageBox.warning(self, 'Add structure error', 'Structure cannot be empty!')
+            QtWidgets.QMessageBox.warning(self, 'Add structure error', 'Structure cannot be empty!')
             self.ui.structnameEdit.setFocus()
             return
 
@@ -239,7 +242,7 @@ class DialogAddEditUnit(QtWidgets.QDialog):
             self.data[unitcol['desc']] = self.ui.descriptionEdit.toPlainText()
             QtWidgets.QDialog.accept(self)
         else:
-            QtGui.QMessageBox.warning(self, 'Add unit error', 'Unit name cannot be empty!')
+            QtWidgets.QMessageBox.warning(self, 'Add unit error', 'Unit name cannot be empty!')
             self.ui.unitnameEdit.setFocus()
             return
 
@@ -272,7 +275,7 @@ class DialogAddEditTag(QtWidgets.QDialog):
             self.data[tagcol['desc']] = self.ui.descriptionEdit.toPlainText()
             QtWidgets.QDialog.accept(self)
         else:
-            QtGui.QMessageBox.warning(self, 'Add tag error', 'Tag name cannot be empty!')
+            QtWidgets.QMessageBox.warning(self, 'Add tag error', 'Tag name cannot be empty!')
             self.ui.tagnameEdit.setFocus()
             return
 
@@ -294,7 +297,7 @@ class DialogSDBInfo(QtWidgets.QDialog):
             self.crs = self.ui.crsEdit.toPlainText().replace('\n', ' ').replace('\r', '')
             QtWidgets.QDialog.accept(self)
         else:
-            QtGui.QMessageBox.warning(self, 'Database info error', 'CRS cannot be empty!')
+            QtWidgets.QMessageBox.warning(self, 'Database info error', 'CRS cannot be empty!')
             self.ui.crsEdit.setFocus()
             return
 

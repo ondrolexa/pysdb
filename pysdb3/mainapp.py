@@ -593,7 +593,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.conn.close()
 
     def dbcommit(self):
-        self.conn.execute("REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+        #self.conn.execute("REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+        self.conn.execute("UPDATE meta SET value=? WHERE name=?", (datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "updated"))
         self.conn.commit()
         self.changed = False
 
