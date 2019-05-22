@@ -263,12 +263,14 @@ class MainWindow(QtWidgets.QMainWindow):
     def infoSDB(self):
         """ Show database info and diagnostics """
         bline = '-------------------------\n'
+        info = 'Database file: {}\n'.format(self.recent[0])
+        info += bline
         try:
             nsites = len(self.conn.execute("SELECT id FROM sites").fetchall())
         except:
-            info = 'Error during SELECT id FROM sites: {}\n'.format(sys.exc_info()[1])
+            info += 'Error during SELECT id FROM sites: {}\n'.format(sys.exc_info()[1])
         else:
-            info = 'Number of sites: {}\n'.format(nsites)
+            info += 'Number of sites: {}\n'.format(nsites)
         try:
             nunits = len(self.conn.execute("SELECT id FROM units").fetchall())
         except:
@@ -331,9 +333,9 @@ class MainWindow(QtWidgets.QMainWindow):
         except:
             info += 'Error during SELECT value FROM meta WHERE name="accessed": {}\n'.format(sys.exc_info()[1])
         else:
-            info += 'Last accessed: {}\n'.format(res[0][0])
+            info += 'Last accessed: {}'.format(res[0][0])
             if len(res) > 1:
-                info += "Error: More than one 'accessed' metavalues.\n"
+                info += "Error: More than one 'accessed' metavalues."
         try:
             res = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()
         except:
