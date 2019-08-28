@@ -1309,7 +1309,7 @@ class MainWindow(QtWidgets.QMainWindow):
         #iv = ImageView(self.imagedir.joinpath(fname))
         #iv.show()
         #iv.exec_()
-        dlg = DialogImageView(self.imagedir.joinpath(fname))
+        dlg = DialogImageView(self.imagedir.joinpath(fname), self)
         dlg.exec_()
 
     def flushImages(self):
