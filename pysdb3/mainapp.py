@@ -236,7 +236,7 @@ class MainWindow(QtWidgets.QMainWindow):
             tree = etree.parse(str(fname))
             wpts = tree.findall("gpx:wpt", namespaces=NSMAP)
             sites = []
-            defunit_id = conn.execute("SELECT id FROM units LIMIT 1").fetchall()[0][0]
+            defunit_id = self.conn.execute("SELECT id FROM units LIMIT 1").fetchall()[0][0]
             for elem in wpts:
                 sites.append((elem.find('gpx:name', namespaces=NSMAP).text,   # name
                               float(elem.attrib['lon']),                      # x_coord
