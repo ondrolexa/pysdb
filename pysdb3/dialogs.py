@@ -13,6 +13,8 @@ from .ui_datafilter import Ui_DataFilterDialog
 from .ui_sitefilter import Ui_SiteFilterDialog
 from .ui_sdbinfo import Ui_DialogSDBInfo
 from .ui_imageview import Ui_DialogImageView
+from .ui_importsitescsv  import Ui_DialogImportSitesCSV
+from .ui_selectunit import Ui_DialogSelectUnit
 
 class DialogAddEditSite(QtWidgets.QDialog):
     def __init__(self, model, action, data=[-1,'',0.0,0.0,'',None], parent=None):
@@ -384,6 +386,19 @@ class DialogImageView(QtWidgets.QDialog):
         # label.setPixmap(pixmap.scaled(640, 480, QtCore.Qt.KeepAspectRatio))
         self.ui.imageLabel.setPixmap(scaledPix)
         #self.ui.imageLabel.adjustSize()
+
+    def accept(self):
+        QtWidgets.QDialog.accept(self)
+
+class DialogSelectUnit(QtWidgets.QDialog):
+    def __init__(self, model, parent=None):
+        super(DialogSelectUnit, self).__init__(parent)
+
+        self.ui = Ui_DialogSelectUnit()
+        self.ui.setupUi(self)
+        # set unit combo
+        self.ui.unitCombo.setModel(model)
+        self.ui.unitCombo.setModelColumn(1)
 
     def accept(self):
         QtWidgets.QDialog.accept(self)

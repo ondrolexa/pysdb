@@ -10,4 +10,6 @@ pyuic5 --from-imports -o pysdb3/ui_datafilter.py pysdb3/ui/datafilter.ui
 pyuic5 --from-imports -o pysdb3/ui_sitefilter.py pysdb3/ui/sitefilter.ui
 pyuic5 --from-imports -o pysdb3/ui_sdbinfo.py pysdb3/ui/sdbinfo.ui
 pyuic5 --from-imports -o pysdb3/ui_imageview.py pysdb3/ui/imageview.ui
+pyuic5 --from-imports -o pysdb3/ui_importsitescsv.py pysdb3/ui/importsitescsv.ui
+pyuic5 --from-imports -o pysdb3/ui_selectunit.py pysdb3/ui/selectunit.ui
 pyrcc5 -o pysdb3/pysdb3_rc.py pysdb3/ui/pysdb3.qrc

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/pysdb3.ui'
 #
-# Created by: PyQt5 UI code generator 5.6
+# Created by: PyQt5 UI code generator 5.9.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -97,7 +97,6 @@ class Ui_MainWindow(object):
         self.tab_data = QtWidgets.QWidget()
         self.tab_data.setObjectName("tab_data")
         self.verticalLayout_8 = QtWidgets.QVBoxLayout(self.tab_data)
-        self.verticalLayout_8.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_8.setObjectName("verticalLayout_8")
         self.dataView = QtWidgets.QTableView(self.tab_data)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
@@ -153,7 +152,6 @@ class Ui_MainWindow(object):
         self.tab_images = QtWidgets.QWidget()
         self.tab_images.setObjectName("tab_images")
         self.verticalLayout_9 = QtWidgets.QVBoxLayout(self.tab_images)
-        self.verticalLayout_9.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_9.setObjectName("verticalLayout_9")
         self.imagesWidget = QtWidgets.QListWidget(self.tab_images)
         self.imagesWidget.setObjectName("imagesWidget")
@@ -232,7 +230,7 @@ class Ui_MainWindow(object):
         self.dockStructuresContents = QtWidgets.QWidget()
         self.dockStructuresContents.setObjectName("dockStructuresContents")
         self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.dockStructuresContents)
-        self.verticalLayout_4.setContentsMargins(0, 0, 9, 0)
+        self.verticalLayout_4.setContentsMargins(-1, -1, 9, -1)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
         self.verticalLayout = QtWidgets.QVBoxLayout()
         self.verticalLayout.setObjectName("verticalLayout")
@@ -318,7 +316,7 @@ class Ui_MainWindow(object):
         self.dockUnitsContents = QtWidgets.QWidget()
         self.dockUnitsContents.setObjectName("dockUnitsContents")
         self.verticalLayout_5 = QtWidgets.QVBoxLayout(self.dockUnitsContents)
-        self.verticalLayout_5.setContentsMargins(0, 0, 9, 0)
+        self.verticalLayout_5.setContentsMargins(-1, -1, 9, -1)
         self.verticalLayout_5.setObjectName("verticalLayout_5")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
         self.verticalLayout_2.setObjectName("verticalLayout_2")
@@ -396,7 +394,7 @@ class Ui_MainWindow(object):
         self.dockTagsContents = QtWidgets.QWidget()
         self.dockTagsContents.setObjectName("dockTagsContents")
         self.verticalLayout_6 = QtWidgets.QVBoxLayout(self.dockTagsContents)
-        self.verticalLayout_6.setContentsMargins(0, 0, 9, 0)
+        self.verticalLayout_6.setContentsMargins(-1, -1, 9, -1)
         self.verticalLayout_6.setObjectName("verticalLayout_6")
         self.verticalLayout_3 = QtWidgets.QVBoxLayout()
         self.verticalLayout_3.setObjectName("verticalLayout_3")

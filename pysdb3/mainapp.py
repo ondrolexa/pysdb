@@ -236,14 +236,15 @@ class MainWindow(QtWidgets.QMainWindow):
             tree = etree.parse(str(fname))
             wpts = tree.findall("gpx:wpt", namespaces=NSMAP)
             sites = []
-            defunit_id = self.conn.execute("SELECT id FROM units LIMIT 1").fetchall()[0][0]
-            for elem in wpts:
-                sites.append((elem.find('gpx:name', namespaces=NSMAP).text,   # name
-                              float(elem.attrib['lon']),                      # x_coord
-                              float(elem.attrib['lat']),                      # y_coord
-                              '',                                             # description
-                              defunit_id))                                    # id_units
-            self.importSites(sites)
+            if self.selectunitdlg.exec_():
+                defunit_id = self.units.row2id[self.selectunitdlg.ui.unitCombo.currentIndex()]
+                for elem in wpts:
+                    sites.append((elem.find('gpx:name', namespaces=NSMAP).text,   # name
+                                  float(elem.attrib['lon']),                      # x_coord
+                                  float(elem.attrib['lat']),                      # y_coord
+                                  '',                                             # description
+                                  defunit_id))                                    # id_units
+                self.importSites(sites)
 
     def importSitesFromCSV(self):
         pass
@@ -579,6 +580,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # preload dialog
             self.sitefilterdlg = DialogSiteFilter(self.units)
             self.datafilterdlg = DialogDataFilter(self.structures)
+            self.selectunitdlg = DialogSelectUnit(self.units)
 
             # -----------------------------------
             # All done, set focus ang go...
