@@ -12,9 +12,10 @@ from .ui_savediscard import Ui_SaveDiscardDialog
 from .ui_datafilter import Ui_DataFilterDialog
 from .ui_sitefilter import Ui_SiteFilterDialog
 from .ui_sdbinfo import Ui_DialogSDBInfo
-from .ui_imageview import Ui_DialogImageView
 from .ui_importsitescsv  import Ui_DialogImportSitesCSV
 from .ui_selectunit import Ui_DialogSelectUnit
+from .ui_multieditdata import Ui_DialogMultiEditData
+
 
 class DialogAddEditSite(QtWidgets.QDialog):
     def __init__(self, model, action, data=[-1,'',0.0,0.0,'',None], parent=None):
@@ -370,26 +371,6 @@ class DialogDataFilter(QtWidgets.QDialog):
         QtWidgets.QDialog.accept(self)
 
 
-class DialogImageView(QtWidgets.QDialog):
-    def __init__(self, path, parent=None):
-        super(DialogImageView, self).__init__(parent)
-        self.ui = Ui_DialogImageView()
-        self.ui.setupUi(self)
-        self.setWindowTitle(path.name)
-        self.pixmap = QtGui.QPixmap(str(path))
-
-    def paintEvent(self, event):
-        size = self.size()
-        scaledPix = self.pixmap.scaled(size, QtCore.Qt.KeepAspectRatio, transformMode = QtCore.Qt.SmoothTransformation)
-        #self.setMaximumSize(scaledPix.size())
-        # self.setMaximumSize(QtCore.QSize(4000,5000))
-        # label.setPixmap(pixmap.scaled(640, 480, QtCore.Qt.KeepAspectRatio))
-        self.ui.imageLabel.setPixmap(scaledPix)
-        #self.ui.imageLabel.adjustSize()
-
-    def accept(self):
-        QtWidgets.QDialog.accept(self)
-
 class DialogSelectUnit(QtWidgets.QDialog):
     def __init__(self, model, parent=None):
         super(DialogSelectUnit, self).__init__(parent)
@@ -399,6 +380,28 @@ class DialogSelectUnit(QtWidgets.QDialog):
         # set unit combo
         self.ui.unitCombo.setModel(model)
         self.ui.unitCombo.setModelColumn(1)
+
+    def accept(self):
+        QtWidgets.QDialog.accept(self)
+
+
+class DialogMultiEditData(QtWidgets.QDialog):
+    #datacol = {'id':0,'id_sites':1,'id_struct':2,'azi':3,'inc':4,'struct':5,'desc':6,'tags':7}
+    def __init__(self, model, tags, parent=None):
+        super(DialogMultiEditData, self).__init__(parent)
+        self.ui = Ui_DialogMultiEditData()
+        self.ui.setupUi(self)
+        self.ui.structureCombo.setModel(model)
+        self.ui.structureCombo.setModelColumn(structurecol['structure'])
+        # let's add view of the data source we just created:
+        self.ui.taggedView.setModel(tags)
+        self.ui.taggedView.setColumnHidden(tagcol['id'], True)
+        self.ui.taggedView.setColumnHidden(tagcol['name'], True)
+        self.ui.taggedView.setColumnHidden(tagcol['desc'], True)
+        self.ui.taggedView.resizeColumnToContents(tagcol['check'])
+        # set title
+        #self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditData", title))
+        self.ui.structureCombo.setFocus()
 
     def accept(self):
         QtWidgets.QDialog.accept(self)

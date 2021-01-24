@@ -1,49 +1,21 @@
 import sys
 import os
 import datetime
-import logging
 import sqlite3
 from pathlib import Path
 from lxml import etree
 import shutil
-from PIL import Image
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
 from .models import *
 from .dialogs import *
 
-__version__ = '3.0.5'
+__version__ = '3.1.0'
 __about__ = """<b>PySDB - structural database manager v.{}</b>
                <p>Copyright (c) 2015 Ondrej Lexa.
                All rights reserved in accordance with
                GPL v2 or later - NO WARRANTIES!</p>"""
-
-# set up logging to file - see previous section for more details
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    filename=os.path.join(os.path.expanduser("~"), 'pysdb.log'),
-                    filemode='w')
-# define a Handler which writes INFO messages or higher to the sys.stderr
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-# set a format which is simpler for console use
-formatter = logging.Formatter('%(levelname)-8s %(message)s')
-# tell the handler to use this format
-console.setFormatter(formatter)
-# add the handler to the root logger
-logging.getLogger('').addHandler(console)
-
-# Now, define a couple of other loggers which might represent areas in your
-# application:
-
-logger = logging.getLogger('PySDB')
-# To log file only
-# logger.debug('Quick zephyrs blow, vexing daft Jim.')
-# To log on CONSOLE
-# logger.info('How quickly daft jumping zebras vex.')
-# logger.warning('Jail zesty vixen who grabbed pay from quack.')
-# logger.error('The five boxing wizards jump quickly.')
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -65,7 +37,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.actionQuit.triggered.connect(self.close)
         self.ui.actionFrom_GPX.triggered.connect(lambda: self.check_action(self.importSitesFromGPX))
         self.ui.actionFrom_CSV.triggered.connect(lambda: self.check_action(self.importSitesFromCSV))
-        self.ui.actionFlush_images.triggered.connect(lambda: self.check_action(self.flushImages))
         # siteview
         self.ui.pushSiteAdd.clicked.connect(lambda: self.check_action(self.addSiteDlg))
         self.ui.pushSiteEdit.clicked.connect(lambda: self.check_action(self.editSiteDlg))
@@ -78,13 +49,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.pushDataRemove.clicked.connect(lambda: self.check_action(self.removeDataDlg))
         self.ui.pushDataFilter.clicked.connect(lambda: self.check_action(self.filterDataDlg))
         self.ui.dataView.doubleClicked.connect(self.editDataDlg)
-        # imagesview
-        self.ui.pushImageAdd.clicked.connect(lambda: self.check_action(self.addImageDlg))
-        self.ui.pushImageRemove.clicked.connect(lambda: self.check_action(self.removeImageDlg))
-        self.ui.imagesWidget.setViewMode(QtWidgets.QListView.IconMode)
-        self.ui.imagesWidget.setIconSize(QtCore.QSize(120, 120))
-        self.ui.imagesWidget.setSpacing(12)
-        self.ui.imagesWidget.itemDoubleClicked.connect(self.showImage)
         # structureview
         self.ui.pushStructuresAdd.clicked.connect(lambda: self.check_action(self.addStructureDlg))
         self.ui.pushStructuresRemove.clicked.connect(lambda: self.check_action(self.removeStructureDlg))
@@ -109,9 +73,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.menuView.addAction(self.ui.dockTags.toggleViewAction())
         self.ui.menuView.addAction(self.ui.toolBar.toggleViewAction())
 
-        # developing shortcut
-        # self.connectDatabase('datalx.sdb')
-        # logger.debug('Database reading finished.')
         self.connected = False
         self.changed = False
 
@@ -121,16 +82,28 @@ class MainWindow(QtWidgets.QMainWindow):
         # load and apply settings
         self.app_settings()
         self.populate_recent()
-        self.imagedir = None
 
         # get ready
         self.statusBar().showMessage('Ready', 5000)
+
+    @property
+    def changed(self):
+        return self._changed
+
+    @changed.setter
+    def changed(self, val):
+        self._changed = val
+        title = QtWidgets.QApplication.translate("MainWindow", 'PySDB Structural database')
+        if self.connected:
+            title += ' - {}'.format(os.path.basename(self.recent[0]))
+        if val:
+            title += '*'
+        self.setWindowTitle(title)
 
     def app_settings(self, write=False):
         settings = QtCore.QSettings('LX', 'pysdb')
         if write:
             settings.setValue("lastdir", str(self.lastdir))
-            settings.setValue("lastimagedir", str(self.lastimagedir))
             settings.beginWriteArray("recent")
             for ix, f in enumerate(self.recent):
                 settings.setArrayIndex(ix)
@@ -138,7 +111,6 @@ class MainWindow(QtWidgets.QMainWindow):
             settings.endArray()
         else:
             self.lastdir = Path(settings.value("lastdir", str(Path.home()), type=str))
-            self.lastimagedir = Path(settings.value("lastimagedir", str(Path.home()), type=str))
             self.recent = []
             n = settings.beginReadArray("recent")
             for ix in range(n):
@@ -474,11 +446,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     self.conn.execute("UPDATE meta SET value = ? WHERE name = ?", (datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "accessed"))
                 self.conn.commit()
-            # Check for images table
-            it = self.conn.execute("SELECT name FROM sqlite_master WHERE name='images'").fetchall()
-            if not it:
-                QtWidgets.QMessageBox.warning(self, 'Database images table error', 'Images table does not exists !\nDefault one will be created.')
-                self.conn.execute("CREATE TABLE images (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, removed integer DEFAULT 0, filename text NOT NULL UNIQUE, description text);")
         return ok
 
     def connectDatabase(self, dbname):
@@ -489,10 +456,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("pragma encoding='UTF-8'")
         # self.conn.execute("BEGIN TRANSACTION")
         if self.checkDatabase():
-            # Create images folder if doesnot exists
-            self.imagedir = dbname.with_name(dbname.stem + '.images')
-            self.imagedir.mkdir(exist_ok=True, parents=True)
-            self.imagedir.joinpath('thumbnails').mkdir(exist_ok=True, parents=True)
             # Populate models and views from database.
             # -----------------------------------
             # read structures table
@@ -635,8 +598,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.db_updateSite(dlg.data)
                 self.sites.updateRow(sindex, dlg.data)
         else:
-            # TODO multiedit
-            pass
+            if self.selectunitdlg.exec_():
+                newunit_id = self.units.row2id[self.selectunitdlg.ui.unitCombo.currentIndex()]
+                for index in indexlist:
+                    sindex = self.sortsites.mapToSource(index)
+                    data = self.sites.getRow(sindex)
+                    data[sitecol['id_units']] = newunit_id
+                    self.db_updateSite(data)
+                    self.sites.updateRow(sindex, data)
 
     def removeSiteDlg(self):
         """ Remove selected data from sites. """
@@ -743,7 +712,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 nrow = list(row)
                 nrow.append(",".join(tags))
                 tlist.append(nrow)
-        self.sitereadImages()
         # read data
         self.data = DataModel(tlist)
         self.filterdata =  QtCore.QSortFilterProxyModel(self)
@@ -786,6 +754,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             # prepare attach list
             attachlist = [[row[0], "%d/%d - %s" % (row[1],row[2],row[3])] for row in self.conn.execute("SELECT structdata.id,azimuth, inclination, structype.structure FROM structdata INNER JOIN structype ON structype.id = structdata.id_structype WHERE structype.planar=1 AND structdata.id_sites=? ORDER BY structdata.id",(indexlist[0].data(), ))]
+            self.tags.cleanState()
             dlg = DialogAddEditData(self.structures, self.tags, attachlist, 'Add')
             # set dlg data
             dlg.data[datacol['id_sites']] = indexlist[0].data()
@@ -833,13 +802,29 @@ class MainWindow(QtWidgets.QMainWindow):
                     attached = attachlist[dlg.ui.attachCombo.currentIndex()][0]
                 else:
                     attached = None
-                self.db_updateData(dlg.data, attached, self.tags.getChecked())
+                self.db_updateData(dlg.data, attached=attached, tagged=self.tags.getChecked())
                 self.siteselChanged()
         else:
-            # TODO multiedit
-            # prepare tag list
-            #taglist = [[row[0], row[1], QtCore.Qt.Unchecked] for row in self.conn.execute("SELECT id,name,description, 0 FROM tags ORDER BY pos")]
-            pass
+            #types = []
+            #for index in indexlist:
+            #    data = self.data.getRow(self.filterdata.mapToSource(index))
+            #    types.append(self.structures.isplanar(self.structures.id2row[data[datacol['id_struct']]]))
+            #if all(types) or not any(types):
+            self.tags.cleanState()
+            dlg = DialogMultiEditData(self.structures, self.tags)
+            if dlg.exec_():
+                newstruct_id = self.structures.row2id[dlg.ui.structureCombo.currentIndex()]
+                for index in indexlist:
+                    data = self.data.getRow(self.filterdata.mapToSource(index))
+                    tagged = None
+                    if dlg.ui.radioBoth.isChecked() or dlg.ui.radioStructure.isChecked():
+                        data[datacol['id_struct']] = newstruct_id
+                    if dlg.ui.radioBoth.isChecked() or dlg.ui.radioTags.isChecked():
+                        tagged = self.tags.getChecked()
+                    self.db_updateData(data, tagged=tagged)
+                self.siteselChanged()
+            #else:
+            #    QtWidgets.QMessageBox.warning(self, 'Multiedit', 'You have to select only planar or only linear structures.')
 
     def removeDataDlg(self):
         """ Remove selected data from data. """
@@ -897,17 +882,18 @@ class MainWindow(QtWidgets.QMainWindow):
             self.conn.execute("INSERT INTO tagged (id_structdata, id_tags) VALUES (?,?)", (id, idtag))
         self.changed = True
 
-    def db_updateData(self, data, attached=None, tagged=[]):
+    def db_updateData(self, data, attached=None, tagged=None):
         """ Update data in database. attached is id of structure and tagged is list of tag ids. """
         self.conn.execute("UPDATE structdata SET id_structype=?, azimuth=?, inclination=?, description=? WHERE id=?", data[2:5]+data[6:7]+data[0:1])
         # remove existing attachments
         self.conn.execute("DELETE FROM attach WHERE id_structdata_linear=?", (data[0],))
         if attached:
             self.conn.execute("INSERT INTO attach (id_structdata_planar, id_structdata_linear) VALUES (?,?)", (attached, data[0]))
-        # remove existing tags
-        self.conn.execute("DELETE FROM tagged WHERE id_structdata=?", (data[0],))
-        for idtag in tagged:
-            self.conn.execute("INSERT INTO tagged (id_structdata, id_tags) VALUES (?,?)", (data[0], idtag))
+        if tagged is not None:
+            # remove existing tags
+            self.conn.execute("DELETE FROM tagged WHERE id_structdata=?", (data[0],))
+            for idtag in tagged:
+                self.conn.execute("INSERT INTO tagged (id_structdata, id_tags) VALUES (?,?)", (data[0], idtag))
         self.changed = True
 
     def db_removeData(self, id):
@@ -1076,7 +1062,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         self.conn.execute("UPDATE sites SET id_units=? WHERE id_units=?", (others[dlg.selected()][unitcol['id']],todel[unitcol['id']]))
                         # change site model
                         for r in range(self.sites.rowCount()):
-                            idx = self.sites.index(r,sitecol['id_units'])
+                            idx = self.sites.index(r, sitecol['id_units'])
                             row = self.sites.getRow(idx)
                             if row[sitecol['id_units']] == todel[unitcol['id']]:
                                 row[sitecol['id_units']] = others[dlg.selected()][unitcol['id']]
@@ -1250,103 +1236,3 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (bpos, aid))
         self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (apos, bid))
         self.changed = True
-
-    # ----------------------------------------------------------------------
-    # IMAGE VIEW
-    # ----------------------------------------------------------------------
-    def sitereadImages(self):
-        # populate images
-        self.ui.imagesWidget.clear()
-        for site in self.siteSelection.selectedRows():
-            for id, fname, desc in self.conn.execute("SELECT id, filename, description FROM images WHERE id_sites=? AND removed=0", (site.data(),)):
-                item = QtWidgets.QListWidgetItem(desc)
-                p = self.imagedir.joinpath('thumbnails', fname)
-                icon = QtGui.QIcon(str(p))
-                item.setIcon(icon)
-                item.setData(QtCore.Qt.UserRole, id)
-                # item.setSizeHint(QtCore.QSize(120, 120))
-                self.ui.imagesWidget.addItem(item)
-
-    def addImageDlg(self):
-        """ Add image """
-        indexlist = self.siteSelection.selectedRows()
-        if len(indexlist) == 1:
-            files, _ = QtWidgets.QFileDialog.getOpenFileNames(self, 'Open images(s)', str(self.lastimagedir), 'Images (*.png *.xpm *.jpg);;All Files (*)')
-            if files:
-                id = indexlist[0].data()
-                for file in files:
-                    fp = Path(file)
-                    self.lastimagedir = fp.parent
-                    tp = self.imagedir.joinpath(fp.name)
-                    thp = self.imagedir.joinpath('thumbnails', fp.name)
-                    if tp.exists() and thp.exists():
-                        QtWidgets.QMessageBox.warning(self, 'Image exists', 'Image {} is already in database.'.format(fp.name))
-                    else:
-                        shutil.copy(str(fp), str(tp))
-                        im = Image.open(str(tp))
-                        im.thumbnail((120, 120))
-                        im.save(str(thp))
-                        self.db_addImage(id, fp.name, fp.stem)
-                self.sitereadImages()
-        else:
-            QtWidgets.QMessageBox.warning(self, 'Add image error', 'Only single site must be selected to add image.')
-
-    def db_addImage(self, idsite, filename, description):
-        try:
-            self.conn.execute("INSERT INTO images (id_sites, filename, description) VALUES (?,?,?)", (idsite, filename, description))
-            self.changed = True
-        except:
-            pass
-
-    def removeImageDlg(self):
-        """ Remove image """
-        item = self.ui.imagesWidget.currentItem()
-        if item is not None:
-            self.conn.execute("UPDATE images SET removed=1 WHERE id=?", (item.data(QtCore.Qt.UserRole),))
-            self.changed = True
-            self.sitereadImages()
-
-    def showImage(self, item):
-        fname = self.conn.execute("SELECT filename FROM images WHERE id=?", (item.data(QtCore.Qt.UserRole),)).fetchall()[0][0]
-        #iv = ImageView(self.imagedir.joinpath(fname))
-        #iv.show()
-        #iv.exec_()
-        dlg = DialogImageView(self.imagedir.joinpath(fname), self)
-        dlg.exec_()
-
-    def flushImages(self):
-        fl = False
-        dbrem = self.conn.execute("SELECT id, filename FROM images WHERE removed=1").fetchall()
-        if len(dbrem) > 0:
-            if QtWidgets.QMessageBox.question(self, 'Flush removed images', 'Do you want to flush {} removed images and commit all changes?'.format(len(dbrem)), QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
-                for id, fname in dbrem:
-                    p = self.imagedir.joinpath(fname)
-                    if p.is_file():
-                        os.remove(str(p))
-                    ph = self.imagedir.joinpath('thumbnails', fname)
-                    if ph.is_file():
-                        os.remove(str(ph))
-                self.dbcommit()
-                self.statusBar().showMessage('Database flushed.', 5000)
-                fl = True
-        # search for orphans
-        imfiles = [file for file in self.imagedir.glob('*') if file.is_file()]
-        thfiles = [file for file in self.imagedir.joinpath('thumbnails').glob('*') if file.is_file()]
-        for id, fname in self.conn.execute("SELECT id, filename FROM images").fetchall():
-            p = self.imagedir.joinpath(fname)
-            ph = self.imagedir.joinpath('thumbnails', fname)
-            if p in imfiles and ph in thfiles:
-                imfiles.remove(p)
-                thfiles.remove(ph)
-        res = '\n'.join(['Files in images directory with no record in database: {}'.format(len(imfiles)),
-                         'Files in thumbnails directory with no record in database: {}'.format(len(thfiles))])
-        if len(imfiles) > 0 or len(thfiles) > 0:
-            if QtWidgets.QMessageBox.question(self, 'Flush image files', 'Do you want to delete following orphan files?\n{}'.format(res), QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
-                for p in imfiles:
-                    os.remove(str(p))
-                for ph in thfiles:
-                    os.remove(str(ph))
-                self.statusBar().showMessage('Orphaned files removed.', 5000)
-                fl = True
-        if not fl:
-            self.statusBar().showMessage('Nothing to flush.', 5000)

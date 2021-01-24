@@ -24,8 +24,6 @@ drop table if exists units;
 CREATE TABLE units (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, pos integer NOT NULL DEFAULT 0, name varchar(60) NOT NULL UNIQUE, description text);
 drop table if exists attach;
 CREATE TABLE attach (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_structdata_planar integer NOT NULL DEFAULT '0', id_structdata_linear integer NOT NULL DEFAULT '0');
-drop table if exists images;
-CREATE TABLE images (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, removed integer DEFAULT 0, filename text NOT NULL UNIQUE, description text);
 drop table if exists meta;
 CREATE TABLE meta (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, name varchar(16) NOT NULL UNIQUE, value text);'''
 
@@ -190,7 +188,7 @@ class StructureModel(QtCore.QAbstractTableModel):
         self.updateIndex()
 
     def isplanar(self, row):
-        return self._items[row][2] == 1
+        return self._items[row][structurecol['planar']] == 1
 
 class UnitModel(QtCore.QAbstractTableModel):
     # Here we define model to store units table data
@@ -342,6 +340,10 @@ class TagModel(QtCore.QAbstractTableModel):
 
     def getChecked(self):
         return [row[tagcol['id']] for row in self._items if row[tagcol['check']] == QtCore.Qt.Checked]
+
+    def cleanState(self):
+        for row in self._items:
+            row[tagcol['check']] = QtCore.Qt.Unchecked
 
     def setState(self, ids):
         for row in self._items:
