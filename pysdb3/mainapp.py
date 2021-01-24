@@ -13,7 +13,7 @@ from .dialogs import *
 
 __version__ = '3.1.0'
 __about__ = """<b>PySDB - structural database manager v.{}</b>
-               <p>Copyright (c) 2015 Ondrej Lexa.
+               <p>Copyright (c) 2021 Ondrej Lexa.
                All rights reserved in accordance with
                GPL v2 or later - NO WARRANTIES!</p>"""
 
@@ -1236,3 +1236,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (bpos, aid))
         self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (apos, bid))
         self.changed = True
+
+
+def main():
+    app = QtWidgets.QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()

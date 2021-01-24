@@ -1,19 +1,8 @@
 #!/usr/bin/env python3 
 
-import sys
-import os
+from pysdb3.mainapp import main as PysdbApp
 
-from pysdb3.mainapp import *
-
-# set things up, and run it. :)
-def main():
-    app = QtWidgets.QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec_())
-
-if __name__ == "__main__":
-    main()
+PysdbApp()
 
 # set tags
         # for row in self.tagged:
