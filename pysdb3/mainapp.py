@@ -343,9 +343,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 nconn.execute(sql)
             # Insert metadata
             crs = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()[0][0]
+            created = self.conn.execute("SELECT value FROM meta WHERE name='created'").fetchall()
+            if not created:
+                created = datetime.datetime.now().strftime("%d.%m.%Y %H:%M"))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", crs))
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", created)
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             # Insert default data from template
@@ -398,10 +401,10 @@ class MainWindow(QtWidgets.QMainWindow):
             GROUP_CONCAT(tags.name) AS tags
             FROM structdata
             INNER JOIN sites ON structdata.id_sites=sites.id
-            INNER JOIN structype ON structype.id = structdata.id_structype
-            INNER JOIN units ON units.id = sites.id_units
-            LEFT OUTER JOIN tagged ON structdata.id = tagged.id_structdata
-            LEFT OUTER JOIN tags ON tags.id = tagged.id_tags
+            INNER JOIN structype ON structype.id=structdata.id_structype
+            INNER JOIN units ON units.id=sites.id_units
+            LEFT OUTER JOIN tagged ON structdata.id=tagged.id_structdata
+            LEFT OUTER JOIN tags ON tags.id=tagged.id_tags
             GROUP BY
             structdata.id
             LIMIT 1"""
