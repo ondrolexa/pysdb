@@ -345,10 +345,10 @@ class MainWindow(QtWidgets.QMainWindow):
             crs = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()[0][0]
             created = self.conn.execute("SELECT value FROM meta WHERE name='created'").fetchall()
             if not created:
-                created = datetime.datetime.now().strftime("%d.%m.%Y %H:%M"))
+                created = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", crs))
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", created)
+            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", created))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             # Insert default data from template
