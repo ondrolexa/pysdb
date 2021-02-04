@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/selectunit.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_DialogSelectUnit(object):
     def setupUi(self, DialogSelectUnit):
@@ -31,4 +33,3 @@ class Ui_DialogSelectUnit(object):
     def retranslateUi(self, DialogSelectUnit):
         _translate = QtCore.QCoreApplication.translate
         DialogSelectUnit.setWindowTitle(_translate("DialogSelectUnit", "Select unit"))
-

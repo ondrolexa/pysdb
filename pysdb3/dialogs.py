@@ -2,7 +2,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 
 from .models import *
 
-from .ui_pysdb3 import Ui_MainWindow
 from .ui_addeditdata import Ui_DialogAddEditData
 from .ui_addeditsite import Ui_DialogAddEditSite
 from .ui_addeditstructure import Ui_DialogAddEditStructure
@@ -12,13 +11,13 @@ from .ui_savediscard import Ui_SaveDiscardDialog
 from .ui_datafilter import Ui_DataFilterDialog
 from .ui_sitefilter import Ui_SiteFilterDialog
 from .ui_sdbinfo import Ui_DialogSDBInfo
-from .ui_importsitescsv  import Ui_DialogImportSitesCSV
+from .ui_importsitescsv import Ui_DialogImportSitesCSV
 from .ui_selectunit import Ui_DialogSelectUnit
 from .ui_multieditdata import Ui_DialogMultiEditData
 
 
 class DialogAddEditSite(QtWidgets.QDialog):
-    def __init__(self, model, action, data=[-1,'',0.0,0.0,'',None], parent=None):
+    def __init__(self, model, action, data=[-1, '', 0.0, 0.0, '', None], parent=None):
         super(DialogAddEditSite, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditSite()
@@ -56,7 +55,6 @@ class DialogAddEditSite(QtWidgets.QDialog):
 
         self.ui.sitenameEdit.setFocus()
 
-
     def accept(self):
         # add site accept check
         if self.ui.sitenameEdit.text():
@@ -71,9 +69,10 @@ class DialogAddEditSite(QtWidgets.QDialog):
             self.ui.sitenameEdit.setFocus()
             return
 
+
 class DialogAddEditData(QtWidgets.QDialog):
-    #datacol = {'id':0,'id_sites':1,'id_struct':2,'azi':3,'inc':4,'struct':5,'desc':6,'tags':7}
-    def __init__(self, model, tags, attached, action, data=[-1,-1,None,'','','','',''], parent=None):
+    # datacol = {'id':0,'id_sites':1,'id_struct':2,'azi':3,'inc':4,'struct':5,'desc':6,'tags':7}
+    def __init__(self, model, tags, attached, action, data=[-1, -1, None, '', '', '', '', ''], parent=None):
         super(DialogAddEditData, self).__init__(parent)
         self.ui = Ui_DialogAddEditData()
         self.ui.setupUi(self)
@@ -113,10 +112,10 @@ class DialogAddEditData(QtWidgets.QDialog):
         # set title
         self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditData", title))
         # set validation rules
-        self.azival = QtGui.QDoubleValidator(0.0,360.0,1000)
+        self.azival = QtGui.QDoubleValidator(0.0, 360.0, 1000)
         self.azival.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
         self.azival.setNotation(QtGui.QDoubleValidator.StandardNotation)
-        self.incval = QtGui.QDoubleValidator(0.0,90.0,1000)
+        self.incval = QtGui.QDoubleValidator(0.0, 90.0, 1000)
         self.incval.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
         self.incval.setNotation(QtGui.QDoubleValidator.StandardNotation)
         self.ui.azimuthEdit.setValidator(self.azival)
@@ -163,9 +162,10 @@ class DialogAddEditData(QtWidgets.QDialog):
         self.data[datacol['desc']] = self.ui.descriptionEdit.toPlainText()
         QtWidgets.QDialog.accept(self)
 
+
 class DialogAddEditStructure(QtWidgets.QDialog):
     #structurecol = {'id':0,'structure':1,'planar':2,'desc':3,'scode':4,'gcode':5}
-    def __init__(self, action, data=[-1,'', 1, '', 0, 0], parent=None):
+    def __init__(self, action, data=[-1, '', 1, '', 0, 0], parent=None):
         super(DialogAddEditStructure, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditStructure()
@@ -216,9 +216,10 @@ class DialogAddEditStructure(QtWidgets.QDialog):
             self.ui.structnameEdit.setFocus()
             return
 
+
 class DialogAddEditUnit(QtWidgets.QDialog):
     #unitcol = {'id':0,'name':1,'desc':2}
-    def __init__(self, action, data=[-1,'', 1, '', 0, 0], parent=None):
+    def __init__(self, action, data=[-1, '', 1, '', 0, 0], parent=None):
         super(DialogAddEditUnit, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditUnit()
@@ -249,9 +250,10 @@ class DialogAddEditUnit(QtWidgets.QDialog):
             self.ui.unitnameEdit.setFocus()
             return
 
+
 class DialogAddEditTag(QtWidgets.QDialog):
     #tagcol = {'id':0,'name':1,'desc':2,'check':3}
-    def __init__(self, action, data=[-1,'', 1, '', 0, 0], parent=None):
+    def __init__(self, action, data=[-1, '', 1, '', 0, 0], parent=None):
         super(DialogAddEditTag, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditTag()
@@ -282,6 +284,7 @@ class DialogAddEditTag(QtWidgets.QDialog):
             self.ui.tagnameEdit.setFocus()
             return
 
+
 class DialogSDBInfo(QtWidgets.QDialog):
     def __init__(self, info, crs, parent=None):
         super(DialogSDBInfo, self).__init__(parent)
@@ -304,8 +307,9 @@ class DialogSDBInfo(QtWidgets.QDialog):
             self.ui.crsEdit.setFocus()
             return
 
+
 class DialogSaveDiscard(QtWidgets.QDialog):
-    #structurecol = {'id':0,'structure':1,'planar':2,'desc':3,'scode':4,'gcode':5}
+    # structurecol = {'id':0,'structure':1,'planar':2,'desc':3,'scode':4,'gcode':5}
     def __init__(self, items, message, label, parent=None):
         super(DialogSaveDiscard, self).__init__(parent)
 
@@ -327,6 +331,7 @@ class DialogSaveDiscard(QtWidgets.QDialog):
     def accept(self):
         QtWidgets.QDialog.accept(self)
 
+
 class DialogSiteFilter(QtWidgets.QDialog):
     def __init__(self, model, parent=None):
         super(DialogSiteFilter, self).__init__(parent)
@@ -339,10 +344,10 @@ class DialogSiteFilter(QtWidgets.QDialog):
         self.ui.unitCombo.activated.connect(self.unit_sel)
         self.ui.nameEdit.textChanged.connect(self.name_sel)
 
-    def unit_sel(self,index):
+    def unit_sel(self, index):
         self.ui.radioUnit.setChecked(True)
 
-    def name_sel(self,index):
+    def name_sel(self, index):
         self.ui.radioName.setChecked(True)
 
     def accept(self):
@@ -361,10 +366,10 @@ class DialogDataFilter(QtWidgets.QDialog):
         self.ui.structureCombo.activated.connect(self.struct_sel)
         self.ui.nameTag.textChanged.connect(self.tag_sel)
 
-    def struct_sel(self,index):
+    def struct_sel(self, index):
         self.ui.radioStructure.setChecked(True)
 
-    def tag_sel(self,index):
+    def tag_sel(self, index):
         self.ui.radioTag.setChecked(True)
 
     def accept(self):
@@ -386,7 +391,7 @@ class DialogSelectUnit(QtWidgets.QDialog):
 
 
 class DialogMultiEditData(QtWidgets.QDialog):
-    #datacol = {'id':0,'id_sites':1,'id_struct':2,'azi':3,'inc':4,'struct':5,'desc':6,'tags':7}
+    # datacol = {'id':0,'id_sites':1,'id_struct':2,'azi':3,'inc':4,'struct':5,'desc':6,'tags':7}
     def __init__(self, model, tags, parent=None):
         super(DialogMultiEditData, self).__init__(parent)
         self.ui = Ui_DialogMultiEditData()
@@ -400,7 +405,7 @@ class DialogMultiEditData(QtWidgets.QDialog):
         self.ui.taggedView.setColumnHidden(tagcol['desc'], True)
         self.ui.taggedView.resizeColumnToContents(tagcol['check'])
         # set title
-        #self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditData", title))
+        # self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditData", title))
         self.ui.structureCombo.setFocus()
 
     def accept(self):

@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/addedittag.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_DialogAddEditTag(object):
     def setupUi(self, DialogAddEditTag):
@@ -55,4 +57,3 @@ class Ui_DialogAddEditTag(object):
         DialogAddEditTag.setWindowTitle(_translate("DialogAddEditTag", "Add site"))
         self.label.setText(_translate("DialogAddEditTag", "&Tag:"))
         self.label_5.setText(_translate("DialogAddEditTag", "&Description:"))
-

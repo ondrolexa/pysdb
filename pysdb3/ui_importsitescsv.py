@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/importsitescsv.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_DialogImportSitesCSV(object):
     def setupUi(self, DialogImportSitesCSV):
@@ -80,4 +82,3 @@ class Ui_DialogImportSitesCSV(object):
         self.groupBox_2.setTitle(_translate("DialogImportSitesCSV", "Unit"))
         self.radioUnitExisting.setText(_translate("DialogImportSitesCSV", "Existing:"))
         self.radioUnitCSV.setText(_translate("DialogImportSitesCSV", "From CSV:"))
-

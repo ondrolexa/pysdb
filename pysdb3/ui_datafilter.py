@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/datafilter.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_DataFilterDialog(object):
     def setupUi(self, DataFilterDialog):
@@ -53,4 +55,3 @@ class Ui_DataFilterDialog(object):
         self.radioStructure.setText(_translate("DataFilterDialog", "Structure is"))
         self.radioTag.setText(_translate("DataFilterDialog", "Tags contain"))
         self.radioNone.setText(_translate("DataFilterDialog", "Show all data"))
-

@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/addeditdata.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_DialogAddEditData(object):
     def setupUi(self, DialogAddEditData):
@@ -138,4 +140,3 @@ class Ui_DialogAddEditData(object):
         self.pushFit.setText(_translate("DialogAddEditData", "Fit"))
         self.pushAttach.setText(_translate("DialogAddEditData", "Detach"))
         self.label_5.setText(_translate("DialogAddEditData", "&Description:"))
-

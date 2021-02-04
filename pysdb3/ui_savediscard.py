@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/savediscard.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_SaveDiscardDialog(object):
     def setupUi(self, SaveDiscardDialog):
@@ -71,5 +73,4 @@ class Ui_SaveDiscardDialog(object):
         SaveDiscardDialog.setWindowTitle(_translate("SaveDiscardDialog", "Dialog"))
         self.messageLabel.setText(_translate("SaveDiscardDialog", "dialog text will be here"))
         self.checkBox.setText(_translate("SaveDiscardDialog", "CheckBox"))
-
 from . import pysdb3_rc

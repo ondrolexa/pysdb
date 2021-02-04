@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/pysdb3.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -147,7 +149,7 @@ class Ui_MainWindow(object):
         self.gridLayout_3.addWidget(self.dataFrame, 0, 1, 1, 1)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 900, 20))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 900, 22))
         self.menubar.setObjectName("menubar")
         self.menuFile = QtWidgets.QMenu(self.menubar)
         self.menuFile.setObjectName("menuFile")
@@ -466,6 +468,8 @@ class Ui_MainWindow(object):
         self.actionFrom_GPX.setObjectName("actionFrom_GPX")
         self.actionFrom_CSV = QtWidgets.QAction(MainWindow)
         self.actionFrom_CSV.setObjectName("actionFrom_CSV")
+        self.actionCompact_database = QtWidgets.QAction(MainWindow)
+        self.actionCompact_database.setObjectName("actionCompact_database")
         self.menuFile.addAction(self.actionNew)
         self.menuFile.addAction(self.actionOpen)
         self.menuFile.addAction(self.menuRecent_databases.menuAction())
@@ -482,6 +486,7 @@ class Ui_MainWindow(object):
         self.menuImport_sites.addAction(self.actionFrom_GPX)
         self.menuImport_sites.addAction(self.actionFrom_CSV)
         self.menuTools.addAction(self.menuImport_sites.menuAction())
+        self.menuTools.addAction(self.actionCompact_database)
         self.menuHelp.addAction(self.actionAbout)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuEdit.menuAction())
@@ -541,5 +546,5 @@ class Ui_MainWindow(object):
         self.actionAa.setText(_translate("MainWindow", "aa"))
         self.actionFrom_GPX.setText(_translate("MainWindow", "From GPX"))
         self.actionFrom_CSV.setText(_translate("MainWindow", "From CSV"))
-
+        self.actionCompact_database.setText(_translate("MainWindow", "Compact database"))
 from . import pysdb3_rc

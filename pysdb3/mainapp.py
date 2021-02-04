@@ -4,12 +4,12 @@ import datetime
 import sqlite3
 from pathlib import Path
 from lxml import etree
-import shutil
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5 import QtCore, QtWidgets
 
 from .models import *
 from .dialogs import *
+from .ui_pysdb3 import Ui_MainWindow
 
 __version__ = '3.1.0'
 __about__ = """<b>PySDB - structural database manager v.{}</b>
@@ -37,6 +37,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.actionQuit.triggered.connect(self.close)
         self.ui.actionFrom_GPX.triggered.connect(lambda: self.check_action(self.importSitesFromGPX))
         self.ui.actionFrom_CSV.triggered.connect(lambda: self.check_action(self.importSitesFromCSV))
+        self.ui.actionCompact_database.triggered.connect(lambda: self.check_action(self.compactDatabase))
         # siteview
         self.ui.pushSiteAdd.clicked.connect(lambda: self.check_action(self.addSiteDlg))
         self.ui.pushSiteEdit.clicked.connect(lambda: self.check_action(self.editSiteDlg))
@@ -234,6 +235,32 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.sitesView.setFocus()
         self.statusBar().showMessage('%d sites successfully imported.' % len(data), 5000)
 
+    def compactDatabase(self):
+        if self.changed:
+            if QtWidgets.QMessageBox.question(self, 'Question', 'Do you want to save all changes before comapction?', QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                self.dbcommit()
+            else:
+                self.conn.rollback()
+        try:
+            unused_units = 0
+            for row in self.conn.execute("SELECT units.id FROM units LEFT OUTER JOIN sites ON units.id=sites.id_units GROUP BY units.name HAVING count(sites.name)=0"):
+                self.conn.execute("DELETE FROM units WHERE id=?", row)
+                unused_units += 1
+            unused_structypes = 0
+            for row in self.conn.execute("SELECT structype.id FROM structype LEFT OUTER JOIN structdata ON structype.id=structdata.id_structype GROUP BY structype.structure HAVING count(structdata.id)=0"):
+                self.conn.execute("DELETE FROM structype WHERE id=?", row)
+                unused_structypes += 1
+        except Exception:
+            QtWidgets.QMessageBox.critical(None, 'Compacting database', 'Error during compacting: {}'.format(sys.exc_info()[1]), QtWidgets.QMessageBox.Ok)
+        else:
+            if unused_units > 0 or unused_structypes > 0:
+                if QtWidgets.QMessageBox.question(self, 'Database compact', 'Do you want to delete {} unused units and {} unsused structure types?'.format(unused_units, unused_structypes), QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No) == QtWidgets.QMessageBox.Yes:
+                    self.dbcommit()
+                    self.conn.close()
+                    self.connectDatabase(self.recent[0])
+                else:
+                    self.conn.rollback()
+
     def infoSDB(self):
         """ Show database info and diagnostics """
         bline = '-------------------------\n'
@@ -241,28 +268,38 @@ class MainWindow(QtWidgets.QMainWindow):
         info += bline
         try:
             nsites = len(self.conn.execute("SELECT id FROM sites").fetchall())
-        except:
+        except Exception:
             info += 'Error during SELECT id FROM sites: {}\n'.format(sys.exc_info()[1])
         else:
             info += 'Number of sites: {}\n'.format(nsites)
         try:
             nunits = len(self.conn.execute("SELECT id FROM units").fetchall())
-        except:
+        except Exception:
             info += 'Error during SELECT id FROM units: {}\n'.format(sys.exc_info()[1])
         else:
             info += 'Number of units: {}\n'.format(nunits)
         try:
             ndata = len(self.conn.execute("SELECT id FROM structdata").fetchall())
-        except:
+        except Exception:
             info += 'Error during SELECT id FROM structdata: {}\n'.format(sys.exc_info()[1])
         else:
             info += 'Number of measurements: {}\n'.format(ndata)
         info += bline
         try:
             ntype = []
+            for row in self.conn.execute("SELECT id,name FROM units ORDER BY pos"):
+                ntype.append((row[1], len(self.conn.execute("SELECT id FROM sites WHERE id_units=?", (row[0],)).fetchall())))
+        except Exception:
+            info += 'Error during counting units: {}\n'.format(sys.exc_info()[1])
+        else:
+            for row in ntype:
+                info += 'Unit {}: {} sites\n'.format(*row)
+        info += bline
+        try:
+            ntype = []
             for row in self.conn.execute("SELECT id,structure FROM structype ORDER BY pos"):
-                ntype.append((row[1],len(self.conn.execute("SELECT id FROM structdata WHERE id_structype=?", (row[0],)).fetchall())))
-        except:
+                ntype.append((row[1], len(self.conn.execute("SELECT id FROM structdata WHERE id_structype=?", (row[0],)).fetchall())))
+        except Exception:
             info += 'Error during counting structdata: {}\n'.format(sys.exc_info()[1])
         else:
             for row in ntype:
@@ -271,8 +308,8 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             ntags = []
             for row in self.conn.execute("SELECT id,name FROM tags ORDER BY pos"):
-                ntags.append((row[1],len(self.conn.execute("SELECT id FROM tagged WHERE id_tags=?", (row[0],)).fetchall())))
-        except:
+                ntags.append((row[1], len(self.conn.execute("SELECT id FROM tagged WHERE id_tags=?", (row[0],)).fetchall())))
+        except Exception:
             info += 'Error during counting structdata: {}\n'.format(sys.exc_info()[1])
         else:
             for row in ntags:
@@ -280,7 +317,7 @@ class MainWindow(QtWidgets.QMainWindow):
         info += bline
         try:
             res = self.conn.execute("SELECT value FROM meta WHERE name='version'").fetchall()
-        except:
+        except Exception:
             info += 'Error during SELECT value FROM meta WHERE name="version": {}\n'.format(sys.exc_info()[1])
         else:
             info += 'Saved by version: {}\n'.format(res[0][0])
@@ -288,7 +325,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 info += "Error: More than one 'version' metavalues.\n"
         try:
             res = self.conn.execute("SELECT value FROM meta WHERE name='created'").fetchall()
-        except:
+        except Exception:
             info += 'SELECT value FROM meta WHERE name="created": {}\n'.format(sys.exc_info()[1])
         else:
             info += 'Created: {}\n'.format(res[0][0])
@@ -296,7 +333,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 info += "Error: More than one 'created' metavalues.\n"
         try:
             res = self.conn.execute("SELECT value FROM meta WHERE name='updated'").fetchall()
-        except:
+        except Exception:
             info += 'Error during SELECT value FROM meta WHERE name="updated": {}\n'.format(sys.exc_info()[1])
         else:
             info += 'Last updated: {}\n'.format(res[0][0])
@@ -304,7 +341,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 info += "Error: More than one 'updated' metavalues.\n"
         try:
             res = self.conn.execute("SELECT value FROM meta WHERE name='accessed'").fetchall()
-        except:
+        except Exception:
             info += 'Error during SELECT value FROM meta WHERE name="accessed": {}\n'.format(sys.exc_info()[1])
         else:
             info += 'Last accessed: {}'.format(res[0][0])
@@ -312,7 +349,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 info += "Error: More than one 'accessed' metavalues."
         try:
             res = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()
-        except:
+        except Exception:
             crs = 'Error during SELECT value FROM meta WHERE name="crs": {}\n'.format(sys.exc_info()[1])
         else:
             crs = res[0][0]
@@ -411,7 +448,7 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self.conn.execute(sql)
             self.conn.execute("SELECT * FROM attach LIMIT 1")
-        except:
+        except Exception:
             ok = False
         else:
             # Check for meta table
@@ -518,7 +555,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.sites = SiteModel(tlist)
 
-            self.sortsites =  QtCore.QSortFilterProxyModel(self)
+            self.sortsites = QtCore.QSortFilterProxyModel(self)
             self.sortsites.setSourceModel(self.sites)
             self.sortsites.setDynamicSortFilter(True)
 
@@ -564,7 +601,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.conn.close()
 
     def dbcommit(self):
-        #self.conn.execute("REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+        # self.conn.execute("REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
         self.conn.execute("UPDATE meta SET value=? WHERE name=?", (datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "updated"))
         self.conn.commit()
         self.changed = False
@@ -708,7 +745,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # read selected data from structdata table
         tlist = []
         for site in self.siteSelection.selectedRows():
-            for row in self.conn.execute("SELECT structdata.id,structdata.id_sites,structdata.id_structype,azimuth,inclination,structype.structure,structdata.description FROM structdata Inner Join structype ON structype.id = structdata.id_structype WHERE structdata.id_sites=? ORDER BY structdata.id",(site.data(),)):
+            for row in self.conn.execute("SELECT structdata.id,structdata.id_sites,structdata.id_structype,azimuth,inclination,structype.structure,structdata.description FROM structdata Inner Join structype ON structype.id = structdata.id_structype WHERE structdata.id_sites=? ORDER BY structdata.id", (site.data(),)):
                 tags = []
                 for tag in self.conn.execute("SELECT tags.name FROM tagged INNER JOIN tags ON tags.id = tagged.id_tags WHERE tagged.id_structdata = ?",(row[0],)):
                     tags.append(tag[0])
@@ -756,7 +793,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, 'Add data error', 'You have no or more than one site selected !\nFor adding data select only one site.')
         else:
             # prepare attach list
-            attachlist = [[row[0], "%d/%d - %s" % (row[1],row[2],row[3])] for row in self.conn.execute("SELECT structdata.id,azimuth, inclination, structype.structure FROM structdata INNER JOIN structype ON structype.id = structdata.id_structype WHERE structype.planar=1 AND structdata.id_sites=? ORDER BY structdata.id",(indexlist[0].data(), ))]
+            attachlist = [[row[0], "%d/%d - %s" % (row[1],row[2],row[3])] for row in self.conn.execute("SELECT structdata.id,azimuth, inclination, structype.structure FROM structdata INNER JOIN structype ON structype.id = structdata.id_structype WHERE structype.planar=1 AND structdata.id_sites=? ORDER BY structdata.id", (indexlist[0].data(), ))]
             self.tags.cleanState()
             dlg = DialogAddEditData(self.structures, self.tags, attachlist, 'Add')
             # set dlg data
@@ -771,12 +808,12 @@ class MainWindow(QtWidgets.QMainWindow):
                     attached = None
                 self.db_addData(dlg.data, attached, self.tags.getChecked())
                 self.siteselChanged()
-                #set focus
-                self.dataSelection.setCurrentIndex(self.data.index(self.data.rowCount()-1,datacol['azi']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+                # set focus
+                self.dataSelection.setCurrentIndex(self.data.index(self.data.rowCount() - 1, datacol['azi']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
                 self.ui.dataView.scrollToBottom()
                 self.ui.dataView.setFocus()
 
-    def editDataDlg(self, index = None):
+    def editDataDlg(self, index=None):
         """ Open data dialog to edit data. """
         # method is invoked by double-click (index passed) or by button action (no index passed)
         if not index:
@@ -789,7 +826,7 @@ class MainWindow(QtWidgets.QMainWindow):
             id = data[datacol['id']]
             siteid = data[datacol['id_sites']]
             # prepare attach list
-            attachlist = [[row[0], "%d/%d - %s" % (row[1],row[2],row[3])] for row in self.conn.execute("SELECT structdata.id,azimuth, inclination, structype.structure FROM structdata INNER JOIN structype ON structype.id = structdata.id_structype WHERE structype.planar=1 AND structdata.id_sites=? AND structdata.id <> ? ORDER BY structdata.id",(siteid, id))]
+            attachlist = [[row[0], "%d/%d - %s" % (row[1], row[2], row[3])] for row in self.conn.execute("SELECT structdata.id,azimuth, inclination, structype.structure FROM structdata INNER JOIN structype ON structype.id = structdata.id_structype WHERE structype.planar=1 AND structdata.id_sites=? AND structdata.id <> ? ORDER BY structdata.id", (siteid, id))]
             # prepare tagged
             self.tags.setState([row[0] for row in self.conn.execute("SELECT id_tags FROM tagged WHERE id_structdata=?", (id,))])
             dlg = DialogAddEditData(self.structures, self.tags, attachlist, 'Edit', data)
@@ -808,11 +845,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.db_updateData(dlg.data, attached=attached, tagged=self.tags.getChecked())
                 self.siteselChanged()
         else:
-            #types = []
-            #for index in indexlist:
+            # types = []
+            # for index in indexlist:
             #    data = self.data.getRow(self.filterdata.mapToSource(index))
             #    types.append(self.structures.isplanar(self.structures.id2row[data[datacol['id_struct']]]))
-            #if all(types) or not any(types):
+            # if all(types) or not any(types):
             self.tags.cleanState()
             dlg = DialogMultiEditData(self.structures, self.tags)
             if dlg.exec_():
@@ -826,7 +863,7 @@ class MainWindow(QtWidgets.QMainWindow):
                         tagged = self.tags.getChecked()
                     self.db_updateData(data, tagged=tagged)
                 self.siteselChanged()
-            #else:
+            # else:
             #    QtWidgets.QMessageBox.warning(self, 'Multiedit', 'You have to select only planar or only linear structures.')
 
     def removeDataDlg(self):
@@ -841,13 +878,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 # sites must be deleted from last to first in sitemodel
                 sindex = [self.filterdata.mapToSource(index) for index in indexlist]
                 rows = [index.row() for index in sindex]
-                for dummy,index in sorted(zip(rows,sindex), reverse=True):
+                for dummy, index in sorted(zip(rows, sindex), reverse=True):
                     self.db_removeData(self.data.row2id[index.row()])
                 self.siteselChanged()
-                #set focus on remembered position
+                # set focus on remembered position
                 if row >= self.data.rowCount():
-                    row = self.data.rowCount()-1
-                self.dataSelection.setCurrentIndex(self.data.index(row,datacol['azi']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+                    row = self.data.rowCount() - 1
+                self.dataSelection.setCurrentIndex(self.data.index(row, datacol['azi']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
                 self.ui.dataView.setFocus()
 
     def filterDataDlg(self):
@@ -856,11 +893,11 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.datafilterdlg.exec_():
             self.do_filterdata()
             if self.datafilterdlg.ui.radioStructure.isChecked():
-                self.statusBar().showMessage('Data filtered to structure %s' % self.datafilterdlg.ui.structureCombo.currentText(),5000)
+                self.statusBar().showMessage('Data filtered to structure %s' % self.datafilterdlg.ui.structureCombo.currentText(), 5000)
             elif self.datafilterdlg.ui.radioTag.isChecked():
-                self.statusBar().showMessage('Data filtered to tags contains %s' % self.datafilterdlg.ui.nameTag.text(),5000)
+                self.statusBar().showMessage('Data filtered to tags contains %s' % self.datafilterdlg.ui.nameTag.text(), 5000)
             else:
-                self.statusBar().showMessage('All data shown',5000)
+                self.statusBar().showMessage('All data shown', 5000)
 
     def do_filterdata(self):
         if self.datafilterdlg.ui.radioStructure.isChecked():
@@ -878,7 +915,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def db_addData(self, data, attached=None, tagged=[]):
         """ Add new record to database. attached is id of structure and tagged is list of tag ids. """
-        id = self.conn.execute("INSERT INTO structdata (id_sites, id_structype, azimuth, inclination,description) VALUES (?,?,?,?,?)",data[1:5]+data[6:7]).lastrowid
+        id = self.conn.execute("INSERT INTO structdata (id_sites, id_structype, azimuth, inclination,description) VALUES (?,?,?,?,?)", data[1:5] + data[6:7]).lastrowid
         if attached:
             self.conn.execute("INSERT INTO attach (id_structdata_planar, id_structdata_linear) VALUES (?,?)", (attached, id))
         for idtag in tagged:
@@ -887,7 +924,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def db_updateData(self, data, attached=None, tagged=None):
         """ Update data in database. attached is id of structure and tagged is list of tag ids. """
-        self.conn.execute("UPDATE structdata SET id_structype=?, azimuth=?, inclination=?, description=? WHERE id=?", data[2:5]+data[6:7]+data[0:1])
+        self.conn.execute("UPDATE structdata SET id_structype=?, azimuth=?, inclination=?, description=? WHERE id=?", data[2:5] + data[6:7] + data[0:1])
         # remove existing attachments
         self.conn.execute("DELETE FROM attach WHERE id_structdata_linear=?", (data[0],))
         if attached:
@@ -1020,7 +1057,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("UPDATE structype SET pos=? WHERE id=?", (apos, bid))
         self.changed = True
 
-
     # ----------------------------------------------------------------------
     # UNIT VIEW
     # ----------------------------------------------------------------------
@@ -1073,7 +1109,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     # delete sites and related data
                     scount, dcount = self.db_removeUnit(self.units.row2id[index.row()])
                     self.units.removeRow(index)
-                    #self.sortsites.reset()
+                    # self.sortsites.reset()
                     self.statusBar().showMessage('Unit %s, %d sites and %d data have been deleted.' % (todel[unitcol['name']], scount, dcount), 5000)
             else:
                 QtWidgets.QMessageBox.warning(self, 'Delete unit', 'There must be at least one unit defined in database!')
@@ -1113,7 +1149,6 @@ class MainWindow(QtWidgets.QMainWindow):
             pos = 1
         self.changed = True
         return self.conn.execute("INSERT OR IGNORE INTO units (pos, name, description) VALUES (?,?,?)", (pos, data[unitcol['name']], data[unitcol['desc']]))
-
 
     def db_updateUnit(self, data):
         """ Update unit in database. """
@@ -1246,6 +1281,7 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()

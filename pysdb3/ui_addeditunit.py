@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/addeditunit.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_DialogAddEditUnit(object):
     def setupUi(self, DialogAddEditUnit):
@@ -55,4 +57,3 @@ class Ui_DialogAddEditUnit(object):
         DialogAddEditUnit.setWindowTitle(_translate("DialogAddEditUnit", "Add site"))
         self.label.setText(_translate("DialogAddEditUnit", "&Unit:"))
         self.label_5.setText(_translate("DialogAddEditUnit", "&Description:"))
-

@@ -2,11 +2,13 @@
 
 # Form implementation generated from reading ui file 'pysdb3/ui/multieditdata.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.14.1
 #
 # WARNING! All changes made in this file will be lost!
 
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_DialogMultiEditData(object):
     def setupUi(self, DialogMultiEditData):
@@ -84,4 +86,3 @@ class Ui_DialogMultiEditData(object):
         self.radioBoth.setText(_translate("DialogMultiEditData", "Both structure and tags"))
         self.radioStructure.setText(_translate("DialogMultiEditData", "Only structure"))
         self.radioTags.setText(_translate("DialogMultiEditData", "Only tags"))
-
