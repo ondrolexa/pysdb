@@ -162,6 +162,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.connectDatabase(p)
             self.lastdir = p.parent
             self.addtorecent(p)
+            self.changed = False
         else:
             QtWidgets.QMessageBox.warning(self, 'File error', 'Database {} does not exists !'.format(p.name))
             if p in self.recent:
@@ -380,14 +381,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 nconn.execute(sql)
             # Insert metadata
             crs = self.conn.execute("SELECT value FROM meta WHERE name='crs'").fetchall()[0][0]
-            created = self.conn.execute("SELECT value FROM meta WHERE name='created'").fetchall()
+            created = self.conn.execute("SELECT value FROM meta WHERE name='created'").fetchall()[0][0]
             if not created:
                 created = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__))
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", crs))
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("created", created))
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+            nconn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("version", __version__))
+            nconn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("crs", crs))
+            nconn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("created", created))
+            nconn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
+            nconn.execute("INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")))
             # Insert default data from template
             for sql in DEFDATA.splitlines():
                 nconn.execute(sql)
@@ -589,6 +590,7 @@ class MainWindow(QtWidgets.QMainWindow):
             # All done, set focus ang go...
             # -----------------------------------
             self.siteSelection.setCurrentIndex(self.sites.index(0, sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
+            self.siteselChanged()
             self.ui.sitesView.setFocus()
 
             self.connected = True
