@@ -96,7 +96,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self._changed = val
         title = QtWidgets.QApplication.translate("MainWindow", 'PySDB Structural database')
         if self.connected:
-            title += ' - {}'.format(os.path.basename(self.recent[0]))
+            if self.recent:
+                title += ' - {}'.format(os.path.basename(self.recent[0]))
         if val:
             title += '*'
         self.setWindowTitle(title)
@@ -157,6 +158,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def openFileSDB(self, checked, p=None):
         if p is None:
             file, _ = QtWidgets.QFileDialog.getOpenFileName(self, 'Open file', str(self.lastdir), 'SDB database (*.sdb);;All Files (*)')
+            if file == '':
+                return
             p = Path(file)
         if p.is_file():
             self.connectDatabase(p)
