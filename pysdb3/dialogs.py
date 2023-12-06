@@ -1,6 +1,6 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from .models import *
+from .models import unitcol, sitecol, datacol, structurecol, tagcol
 
 from .ui_addeditdata import Ui_DialogAddEditData
 from .ui_addeditsite import Ui_DialogAddEditSite

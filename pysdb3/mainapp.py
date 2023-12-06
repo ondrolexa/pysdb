@@ -7,8 +7,34 @@ from lxml import etree
 
 from PyQt5 import QtCore, QtWidgets
 
-from .models import *
-from .dialogs import *
+from .models import (
+    SCHEMA,
+    DEFDATA,
+    sitecol,
+    datacol,
+    structurecol,
+    unitcol,
+    tagcol,
+    SiteModel,
+    DataModel,
+    StructureModel,
+    UnitModel,
+    TagModel,
+)
+from .dialogs import (
+    DialogImportSetting,
+    DialogSDBInfo,
+    DialogSiteFilter,
+    DialogDataFilter,
+    DialogSelectUnit,
+    DialogAddEditSite,
+    DialogAddEditData,
+    DialogMultiEditData,
+    DialogAddEditStructure,
+    DialogSaveDiscard,
+    DialogAddEditUnit,
+    DialogAddEditTag,
+)
 from .ui_pysdb3 import Ui_MainWindow
 
 __version__ = "3.1.0"
@@ -374,6 +400,24 @@ class MainWindow(QtWidgets.QMainWindow):
                                 )  # id_units
                             self.units.updateIndex()
                             self.importSites(sites)
+                    else:
+                        QtWidgets.QMessageBox.warning(
+                            self,
+                            "GeoJSON error",
+                            "Features must be points",
+                        )
+                else:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "GeoJSON error",
+                        "There are no features in file",
+                    )
+            else:
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "GeoJSON error",
+                    "GeoJSON must contain FeatureCollection",
+                )
 
     def importSites(self, data):
         for rec in data:
@@ -1648,7 +1692,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def db_addStructure(self, data):
         """Add structure to database."""
         pos = self.conn.execute("SELECT MAX(pos)+1 FROM structype").fetchall()[0][0]
-        if pos == None:
+        if not pos:
             pos = 1
         self.changed = True
         return self.conn.execute(
@@ -1827,7 +1871,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def db_addUnit(self, data):
         """Add unit to database."""
         pos = self.conn.execute("SELECT MAX(pos)+1 FROM units").fetchall()[0][0]
-        if pos == None:
+        if not pos:
             pos = 1
         self.changed = True
         return self.conn.execute(
