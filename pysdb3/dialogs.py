@@ -11,44 +11,48 @@ from .ui_savediscard import Ui_SaveDiscardDialog
 from .ui_datafilter import Ui_DataFilterDialog
 from .ui_sitefilter import Ui_SiteFilterDialog
 from .ui_sdbinfo import Ui_DialogSDBInfo
-from .ui_importsitescsv import Ui_DialogImportSitesCSV
+from .ui_importsitesfile import Ui_DialogImportSitesFile
 from .ui_selectunit import Ui_DialogSelectUnit
 from .ui_multieditdata import Ui_DialogMultiEditData
 
 
 class DialogAddEditSite(QtWidgets.QDialog):
-    def __init__(self, model, action, data=[-1, '', 0.0, 0.0, '', None], parent=None):
+    def __init__(self, model, action, data=[-1, "", 0.0, 0.0, "", None], parent=None):
         super(DialogAddEditSite, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditSite()
         self.ui.setupUi(self)
         self.ui.unitCombo.setModel(model)
-        self.ui.unitCombo.setModelColumn(unitcol['name'])
+        self.ui.unitCombo.setModelColumn(unitcol["name"])
         # store data
         self.data = data
         # populate widgets
-        if action == 'Add':
-            self.ui.sitenameEdit.setText('')
-            self.ui.xcoordEdit.setText('0')
-            self.ui.ycoordEdit.setText('0')
-            self.ui.descriptionEdit.setPlainText('')
-            title = 'Add site'
+        if action == "Add":
+            self.ui.sitenameEdit.setText("")
+            self.ui.xcoordEdit.setText("0")
+            self.ui.ycoordEdit.setText("0")
+            self.ui.descriptionEdit.setPlainText("")
+            title = "Add site"
         else:
-            self.ui.sitenameEdit.setText(data[sitecol['name']])
-            self.ui.xcoordEdit.setText(str(data[sitecol['x']]))
-            self.ui.ycoordEdit.setText(str(data[sitecol['y']]))
-            self.ui.descriptionEdit.setPlainText(data[sitecol['desc']])
-            title = 'Edit site #%d' % data[sitecol['id']]
+            self.ui.sitenameEdit.setText(data[sitecol["name"]])
+            self.ui.xcoordEdit.setText(str(data[sitecol["x"]]))
+            self.ui.ycoordEdit.setText(str(data[sitecol["y"]]))
+            self.ui.descriptionEdit.setPlainText(data[sitecol["desc"]])
+            title = "Edit site #%d" % data[sitecol["id"]]
         # set unit
-        if data[sitecol['id_units']]:
-            self.ui.unitCombo.setCurrentIndex(model.id2row[data[sitecol['id_units']]])
+        if data[sitecol["id_units"]]:
+            self.ui.unitCombo.setCurrentIndex(model.id2row[data[sitecol["id_units"]]])
         else:
             self.ui.unitCombo.setCurrentIndex(0)
         # set title
-        self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditSite", title))
+        self.setWindowTitle(
+            QtWidgets.QApplication.translate("DialogAddEditSite", title)
+        )
         # set validation rules
         floatval = QtGui.QDoubleValidator()
-        floatval.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
+        floatval.setLocale(
+            QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates)
+        )
         floatval.setNotation(QtGui.QDoubleValidator.StandardNotation)
         self.ui.xcoordEdit.setValidator(floatval)
         self.ui.ycoordEdit.setValidator(floatval)
@@ -58,48 +62,62 @@ class DialogAddEditSite(QtWidgets.QDialog):
     def accept(self):
         # add site accept check
         if self.ui.sitenameEdit.text():
-            self.data[sitecol['name']] = self.ui.sitenameEdit.text()
-            self.data[sitecol['x']] = float(self.ui.xcoordEdit.text())
-            self.data[sitecol['y']] = float(self.ui.ycoordEdit.text())
-            self.data[sitecol['desc']] = self.ui.descriptionEdit.toPlainText()
-            self.data[sitecol['id_units']] = self.ui.unitCombo.model().row2id[self.ui.unitCombo.currentIndex()]
+            self.data[sitecol["name"]] = self.ui.sitenameEdit.text()
+            self.data[sitecol["x"]] = float(self.ui.xcoordEdit.text())
+            self.data[sitecol["y"]] = float(self.ui.ycoordEdit.text())
+            self.data[sitecol["desc"]] = self.ui.descriptionEdit.toPlainText()
+            self.data[sitecol["id_units"]] = self.ui.unitCombo.model().row2id[
+                self.ui.unitCombo.currentIndex()
+            ]
             QtWidgets.QDialog.accept(self)
         else:
-            QtWidgets.QMessageBox.warning(self, 'Add site error', 'Sitename cannot be empty!')
+            QtWidgets.QMessageBox.warning(
+                self, "Add site error", "Sitename cannot be empty!"
+            )
             self.ui.sitenameEdit.setFocus()
             return
 
 
 class DialogAddEditData(QtWidgets.QDialog):
     # datacol = {'id':0,'id_sites':1,'id_struct':2,'azi':3,'inc':4,'struct':5,'desc':6,'tags':7}
-    def __init__(self, model, tags, attached, action, data=[-1, -1, None, '', '', '', '', ''], parent=None):
+    def __init__(
+        self,
+        model,
+        tags,
+        attached,
+        action,
+        data=[-1, -1, None, "", "", "", "", ""],
+        parent=None,
+    ):
         super(DialogAddEditData, self).__init__(parent)
         self.ui = Ui_DialogAddEditData()
         self.ui.setupUi(self)
         self.ui.structureCombo.setModel(model)
-        self.ui.structureCombo.setModelColumn(structurecol['structure'])
+        self.ui.structureCombo.setModelColumn(structurecol["structure"])
         # store data
         self.data = data
         # populate widgets
-        if action == 'Add':
-            self.ui.azimuthEdit.setText('')
-            self.ui.inclinationEdit.setText('')
-            self.ui.descriptionEdit.setPlainText('')
-            title = 'Add data'
+        if action == "Add":
+            self.ui.azimuthEdit.setText("")
+            self.ui.inclinationEdit.setText("")
+            self.ui.descriptionEdit.setPlainText("")
+            title = "Add data"
         else:
-            self.ui.azimuthEdit.setText(str(data[datacol['azi']]))
-            self.ui.inclinationEdit.setText(str(data[datacol['inc']]))
-            self.ui.descriptionEdit.setPlainText(data[datacol['desc']])
-            title = 'Edit record #%d' % data[datacol['id']]
+            self.ui.azimuthEdit.setText(str(data[datacol["azi"]]))
+            self.ui.inclinationEdit.setText(str(data[datacol["inc"]]))
+            self.ui.descriptionEdit.setPlainText(data[datacol["desc"]])
+            title = "Edit record #%d" % data[datacol["id"]]
         # let's add view of the data source we just created:
         self.ui.taggedView.setModel(tags)
-        self.ui.taggedView.setColumnHidden(tagcol['id'], True)
-        self.ui.taggedView.setColumnHidden(tagcol['name'], True)
-        self.ui.taggedView.setColumnHidden(tagcol['desc'], True)
-        self.ui.taggedView.resizeColumnToContents(tagcol['check'])
+        self.ui.taggedView.setColumnHidden(tagcol["id"], True)
+        self.ui.taggedView.setColumnHidden(tagcol["name"], True)
+        self.ui.taggedView.setColumnHidden(tagcol["desc"], True)
+        self.ui.taggedView.resizeColumnToContents(tagcol["check"])
         # set structure
-        if data[datacol['id_struct']]:
-            self.ui.structureCombo.setCurrentIndex(model.id2row[data[datacol['id_struct']]])
+        if data[datacol["id_struct"]]:
+            self.ui.structureCombo.setCurrentIndex(
+                model.id2row[data[datacol["id_struct"]]]
+            )
         # set attach visibility
         self.structure_changed(self.ui.structureCombo.currentIndex())
         # populate attachCombo
@@ -110,13 +128,19 @@ class DialogAddEditData(QtWidgets.QDialog):
         self.ui.pushFit.clicked.connect(self.fit_lineplane)
 
         # set title
-        self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditData", title))
+        self.setWindowTitle(
+            QtWidgets.QApplication.translate("DialogAddEditData", title)
+        )
         # set validation rules
         self.azival = QtGui.QDoubleValidator(0.0, 360.0, 1000)
-        self.azival.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
+        self.azival.setLocale(
+            QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates)
+        )
         self.azival.setNotation(QtGui.QDoubleValidator.StandardNotation)
         self.incval = QtGui.QDoubleValidator(0.0, 90.0, 1000)
-        self.incval.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
+        self.incval.setLocale(
+            QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates)
+        )
         self.incval.setNotation(QtGui.QDoubleValidator.StandardNotation)
         self.ui.azimuthEdit.setValidator(self.azival)
         self.ui.inclinationEdit.setValidator(self.incval)
@@ -146,26 +170,38 @@ class DialogAddEditData(QtWidgets.QDialog):
 
     def accept(self):
         # add data accept check
-        self.data[datacol['id_struct']] = self.ui.structureCombo.model().row2id[self.ui.structureCombo.currentIndex()]
-        if self.azival.validate(self.ui.azimuthEdit.text(), 0)[0] == QtGui.QValidator.Acceptable:
-            self.data[datacol['azi']] = float(self.ui.azimuthEdit.text())
+        self.data[datacol["id_struct"]] = self.ui.structureCombo.model().row2id[
+            self.ui.structureCombo.currentIndex()
+        ]
+        if (
+            self.azival.validate(self.ui.azimuthEdit.text(), 0)[0]
+            == QtGui.QValidator.Acceptable
+        ):
+            self.data[datacol["azi"]] = float(self.ui.azimuthEdit.text())
         else:
-            QtWidgets.QMessageBox.warning(self, 'Add site error', 'Azimuth must be number between 0-360.')
+            QtWidgets.QMessageBox.warning(
+                self, "Add site error", "Azimuth must be number between 0-360."
+            )
             self.ui.azimuthEdit.setFocus()
             return
-        if self.incval.validate(self.ui.inclinationEdit.text(), 0)[0] == QtGui.QValidator.Acceptable:
-            self.data[datacol['inc']] = float(self.ui.inclinationEdit.text())
+        if (
+            self.incval.validate(self.ui.inclinationEdit.text(), 0)[0]
+            == QtGui.QValidator.Acceptable
+        ):
+            self.data[datacol["inc"]] = float(self.ui.inclinationEdit.text())
         else:
-            QtWidgets.QMessageBox.warning(self, 'Add site error', 'Inclinations must be number between 0-90.')
+            QtWidgets.QMessageBox.warning(
+                self, "Add site error", "Inclinations must be number between 0-90."
+            )
             self.ui.inclinationEdit.setFocus()
             return
-        self.data[datacol['desc']] = self.ui.descriptionEdit.toPlainText()
+        self.data[datacol["desc"]] = self.ui.descriptionEdit.toPlainText()
         QtWidgets.QDialog.accept(self)
 
 
 class DialogAddEditStructure(QtWidgets.QDialog):
-    #structurecol = {'id':0,'structure':1,'planar':2,'desc':3,'scode':4,'gcode':5}
-    def __init__(self, action, data=[-1, '', 1, '', 0, 0], parent=None):
+    # structurecol = {'id':0,'structure':1,'planar':2,'desc':3,'scode':4,'gcode':5}
+    def __init__(self, action, data=[-1, "", 1, "", 0, 0], parent=None):
         super(DialogAddEditStructure, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditStructure()
@@ -173,25 +209,27 @@ class DialogAddEditStructure(QtWidgets.QDialog):
         # store data
         self.data = list(data)
         # populate widgets
-        if action == 'Add':
-            self.ui.structnameEdit.setText('')
-            self.ui.scodeEdit.setText('0')
-            self.ui.gcodeEdit.setText('0')
-            self.ui.descriptionEdit.setPlainText('')
+        if action == "Add":
+            self.ui.structnameEdit.setText("")
+            self.ui.scodeEdit.setText("0")
+            self.ui.gcodeEdit.setText("0")
+            self.ui.descriptionEdit.setPlainText("")
             self.ui.radioPlanar.setChecked(True)
-            title = 'Add structure'
+            title = "Add structure"
         else:
-            self.ui.structnameEdit.setText(data[structurecol['structure']])
-            self.ui.scodeEdit.setText(str(data[structurecol['scode']]))
-            self.ui.gcodeEdit.setText(str(data[structurecol['gcode']]))
-            self.ui.descriptionEdit.setPlainText(data[structurecol['desc']])
-            if data[structurecol['planar']]:
+            self.ui.structnameEdit.setText(data[structurecol["structure"]])
+            self.ui.scodeEdit.setText(str(data[structurecol["scode"]]))
+            self.ui.gcodeEdit.setText(str(data[structurecol["gcode"]]))
+            self.ui.descriptionEdit.setPlainText(data[structurecol["desc"]])
+            if data[structurecol["planar"]]:
                 self.ui.radioPlanar.setChecked(True)
             else:
                 self.ui.radioLinear.setChecked(True)
-            title = 'Edit structure #%d' % data[structurecol['id']]
+            title = "Edit structure #%d" % data[structurecol["id"]]
         # set title
-        self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditStructure", title))
+        self.setWindowTitle(
+            QtWidgets.QApplication.translate("DialogAddEditStructure", title)
+        )
         # set validation rules
         intval = QtGui.QIntValidator()
         self.ui.scodeEdit.setValidator(intval)
@@ -202,24 +240,26 @@ class DialogAddEditStructure(QtWidgets.QDialog):
     def accept(self):
         # add structure accept check
         if self.ui.structnameEdit.text():
-            self.data[structurecol['structure']] = self.ui.structnameEdit.text()
-            self.data[structurecol['scode']] = int(self.ui.scodeEdit.text())
-            self.data[structurecol['gcode']] = int(self.ui.gcodeEdit.text())
-            self.data[structurecol['desc']] = self.ui.descriptionEdit.toPlainText()
+            self.data[structurecol["structure"]] = self.ui.structnameEdit.text()
+            self.data[structurecol["scode"]] = int(self.ui.scodeEdit.text())
+            self.data[structurecol["gcode"]] = int(self.ui.gcodeEdit.text())
+            self.data[structurecol["desc"]] = self.ui.descriptionEdit.toPlainText()
             if self.ui.radioPlanar.isChecked():
-                self.data[structurecol['planar']] = 1
+                self.data[structurecol["planar"]] = 1
             else:
-                self.data[structurecol['planar']] = 0
+                self.data[structurecol["planar"]] = 0
             QtWidgets.QDialog.accept(self)
         else:
-            QtWidgets.QMessageBox.warning(self, 'Add structure error', 'Structure cannot be empty!')
+            QtWidgets.QMessageBox.warning(
+                self, "Add structure error", "Structure cannot be empty!"
+            )
             self.ui.structnameEdit.setFocus()
             return
 
 
 class DialogAddEditUnit(QtWidgets.QDialog):
-    #unitcol = {'id':0,'name':1,'desc':2}
-    def __init__(self, action, data=[-1, '', 1, '', 0, 0], parent=None):
+    # unitcol = {'id':0,'name':1,'desc':2}
+    def __init__(self, action, data=[-1, "", 1, "", 0, 0], parent=None):
         super(DialogAddEditUnit, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditUnit()
@@ -227,33 +267,37 @@ class DialogAddEditUnit(QtWidgets.QDialog):
         # store data
         self.data = list(data)
         # populate widgets
-        if action == 'Add':
-            self.ui.unitnameEdit.setText('')
-            self.ui.descriptionEdit.setPlainText('')
-            title = 'Add unit'
+        if action == "Add":
+            self.ui.unitnameEdit.setText("")
+            self.ui.descriptionEdit.setPlainText("")
+            title = "Add unit"
         else:
-            self.ui.unitnameEdit.setText(data[unitcol['name']])
-            self.ui.descriptionEdit.setPlainText(data[unitcol['desc']])
-            title = 'Edit unit #%d' % data[unitcol['id']]
+            self.ui.unitnameEdit.setText(data[unitcol["name"]])
+            self.ui.descriptionEdit.setPlainText(data[unitcol["desc"]])
+            title = "Edit unit #%d" % data[unitcol["id"]]
         # set title
-        self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditUnit", title))
+        self.setWindowTitle(
+            QtWidgets.QApplication.translate("DialogAddEditUnit", title)
+        )
         self.ui.unitnameEdit.setFocus()
 
     def accept(self):
         # add structure accept check
         if self.ui.unitnameEdit.text():
-            self.data[unitcol['name']] = self.ui.unitnameEdit.text()
-            self.data[unitcol['desc']] = self.ui.descriptionEdit.toPlainText()
+            self.data[unitcol["name"]] = self.ui.unitnameEdit.text()
+            self.data[unitcol["desc"]] = self.ui.descriptionEdit.toPlainText()
             QtWidgets.QDialog.accept(self)
         else:
-            QtWidgets.QMessageBox.warning(self, 'Add unit error', 'Unit name cannot be empty!')
+            QtWidgets.QMessageBox.warning(
+                self, "Add unit error", "Unit name cannot be empty!"
+            )
             self.ui.unitnameEdit.setFocus()
             return
 
 
 class DialogAddEditTag(QtWidgets.QDialog):
-    #tagcol = {'id':0,'name':1,'desc':2,'check':3}
-    def __init__(self, action, data=[-1, '', 1, '', 0, 0], parent=None):
+    # tagcol = {'id':0,'name':1,'desc':2,'check':3}
+    def __init__(self, action, data=[-1, "", 1, "", 0, 0], parent=None):
         super(DialogAddEditTag, self).__init__(parent)
 
         self.ui = Ui_DialogAddEditTag()
@@ -261,14 +305,14 @@ class DialogAddEditTag(QtWidgets.QDialog):
         # store data
         self.data = list(data)
         # populate widgets
-        if action == 'Add':
-            self.ui.tagnameEdit.setText('')
-            self.ui.descriptionEdit.setPlainText('')
-            title = 'Add tag'
+        if action == "Add":
+            self.ui.tagnameEdit.setText("")
+            self.ui.descriptionEdit.setPlainText("")
+            title = "Add tag"
         else:
-            self.ui.tagnameEdit.setText(data[tagcol['name']])
-            self.ui.descriptionEdit.setPlainText(data[tagcol['desc']])
-            title = 'Edit tag #%d' % data[tagcol['id']]
+            self.ui.tagnameEdit.setText(data[tagcol["name"]])
+            self.ui.descriptionEdit.setPlainText(data[tagcol["desc"]])
+            title = "Edit tag #%d" % data[tagcol["id"]]
         # set title
         self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditTag", title))
         self.ui.tagnameEdit.setFocus()
@@ -276,11 +320,13 @@ class DialogAddEditTag(QtWidgets.QDialog):
     def accept(self):
         # add structure accept check
         if self.ui.tagnameEdit.text():
-            self.data[tagcol['name']] = self.ui.tagnameEdit.text()
-            self.data[tagcol['desc']] = self.ui.descriptionEdit.toPlainText()
+            self.data[tagcol["name"]] = self.ui.tagnameEdit.text()
+            self.data[tagcol["desc"]] = self.ui.descriptionEdit.toPlainText()
             QtWidgets.QDialog.accept(self)
         else:
-            QtWidgets.QMessageBox.warning(self, 'Add tag error', 'Tag name cannot be empty!')
+            QtWidgets.QMessageBox.warning(
+                self, "Add tag error", "Tag name cannot be empty!"
+            )
             self.ui.tagnameEdit.setFocus()
             return
 
@@ -300,10 +346,14 @@ class DialogSDBInfo(QtWidgets.QDialog):
     def accept(self):
         # add structure accept check
         if self.ui.crsEdit.toPlainText():
-            self.crs = self.ui.crsEdit.toPlainText().replace('\n', ' ').replace('\r', '')
+            self.crs = (
+                self.ui.crsEdit.toPlainText().replace("\n", " ").replace("\r", "")
+            )
             QtWidgets.QDialog.accept(self)
         else:
-            QtWidgets.QMessageBox.warning(self, 'Database info error', 'CRS cannot be empty!')
+            QtWidgets.QMessageBox.warning(
+                self, "Database info error", "CRS cannot be empty!"
+            )
             self.ui.crsEdit.setFocus()
             return
 
@@ -320,7 +370,9 @@ class DialogSaveDiscard(QtWidgets.QDialog):
         self.ui.checkBox.setChecked(False)
         self.ui.comboBox.clear()
         self.ui.comboBox.addItems(items)
-        self.setWindowTitle(QtWidgets.QApplication.translate("DialogSaveDiscard", 'Delete structure'))
+        self.setWindowTitle(
+            QtWidgets.QApplication.translate("DialogSaveDiscard", "Delete structure")
+        )
 
     def checked(self):
         return self.ui.checkBox.isChecked()
@@ -397,16 +449,47 @@ class DialogMultiEditData(QtWidgets.QDialog):
         self.ui = Ui_DialogMultiEditData()
         self.ui.setupUi(self)
         self.ui.structureCombo.setModel(model)
-        self.ui.structureCombo.setModelColumn(structurecol['structure'])
+        self.ui.structureCombo.setModelColumn(structurecol["structure"])
         # let's add view of the data source we just created:
         self.ui.taggedView.setModel(tags)
-        self.ui.taggedView.setColumnHidden(tagcol['id'], True)
-        self.ui.taggedView.setColumnHidden(tagcol['name'], True)
-        self.ui.taggedView.setColumnHidden(tagcol['desc'], True)
-        self.ui.taggedView.resizeColumnToContents(tagcol['check'])
+        self.ui.taggedView.setColumnHidden(tagcol["id"], True)
+        self.ui.taggedView.setColumnHidden(tagcol["name"], True)
+        self.ui.taggedView.setColumnHidden(tagcol["desc"], True)
+        self.ui.taggedView.resizeColumnToContents(tagcol["check"])
         # set title
         # self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditData", title))
         self.ui.structureCombo.setFocus()
+
+    def accept(self):
+        QtWidgets.QDialog.accept(self)
+
+
+class DialogImportSetting(QtWidgets.QDialog):
+    def __init__(self, model, properties, geom=True, parent=None):
+        super(DialogImportSetting, self).__init__(parent)
+
+        self.ui = Ui_DialogImportSitesFile()
+        self.ui.setupUi(self)
+        # set combos
+        lprops = [p.lower() for p in properties]
+        self.ui.siteComboFile.addItems(properties)
+        if "name" in lprops:
+            self.ui.siteComboFile.setCurrentIndex(lprops.index("name"))
+        if geom:
+            self.ui.lonComboFile.addItems(properties)
+            if "lon" in lprops:
+                self.ui.lonComboFile.setCurrentIndex(lprops.index("lon"))
+            self.ui.latComboFile.addItems(properties)
+            if "lat" in lprops:
+                self.ui.latComboFile.setCurrentIndex(lprops.index("lat"))
+        else:
+            self.ui.lonComboFile.setEnabled(False)
+            self.ui.latComboFile.setEnabled(False)
+        self.ui.unitComboFile.addItems(properties)
+        if "unit" in lprops:
+            self.ui.unitComboFile.setCurrentIndex(lprops.index("unit"))
+        self.ui.unitCombo.setModel(model)
+        self.ui.unitCombo.setModelColumn(1)
 
     def accept(self):
         QtWidgets.QDialog.accept(self)

@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>DialogImportSitesCSV</class>
- <widget class="QDialog" name="DialogImportSitesCSV">
+ <class>DialogImportSitesFile</class>
+ <widget class="QDialog" name="DialogImportSitesFile">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>273</width>
-    <height>271</height>
+    <height>286</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Import from CSV</string>
+   <string>Import settings</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
@@ -28,7 +28,7 @@
        </widget>
       </item>
       <item row="0" column="1">
-       <widget class="QComboBox" name="siteComboCSV"/>
+       <widget class="QComboBox" name="siteComboFile"/>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_2">
@@ -38,7 +38,7 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QComboBox" name="lonComboCSV"/>
+       <widget class="QComboBox" name="lonComboFile"/>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="label_3">
@@ -48,7 +48,7 @@
        </widget>
       </item>
       <item row="2" column="1">
-       <widget class="QComboBox" name="latComboCSV"/>
+       <widget class="QComboBox" name="latComboFile"/>
       </item>
      </layout>
     </widget>
@@ -76,9 +76,9 @@
        <widget class="QComboBox" name="unitCombo"/>
       </item>
       <item row="1" column="0">
-       <widget class="QRadioButton" name="radioUnitCSV">
+       <widget class="QRadioButton" name="radioUnitFile">
         <property name="text">
-         <string>From CSV:</string>
+         <string>From file:</string>
         </property>
         <attribute name="buttonGroup">
          <string notr="true">buttonGroup</string>
@@ -86,7 +86,7 @@
        </widget>
       </item>
       <item row="1" column="1">
-       <widget class="QComboBox" name="unitComboCSV"/>
+       <widget class="QComboBox" name="unitComboFile"/>
       </item>
      </layout>
     </widget>
@@ -108,7 +108,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>DialogImportSitesCSV</receiver>
+   <receiver>DialogImportSitesFile</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -124,7 +124,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>DialogImportSitesCSV</receiver>
+   <receiver>DialogImportSitesFile</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

@@ -279,6 +279,7 @@
       <string>Import sites</string>
      </property>
      <addaction name="actionFrom_GPX"/>
+     <addaction name="actionFrom_GeoJSON"/>
      <addaction name="actionFrom_CSV"/>
     </widget>
     <addaction name="menuImport_sites"/>
@@ -898,6 +899,11 @@
   <action name="actionCompact_database">
    <property name="text">
     <string>Compact database</string>
+   </property>
+  </action>
+  <action name="actionFrom_GeoJSON">
+   <property name="text">
+    <string>From GeoJSON</string>
    </property>
   </action>
  </widget>
