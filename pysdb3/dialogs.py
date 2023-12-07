@@ -38,7 +38,7 @@ class DialogAddEditSite(QtWidgets.QDialog):
             self.ui.xcoordEdit.setText(str(data[sitecol["x"]]))
             self.ui.ycoordEdit.setText(str(data[sitecol["y"]]))
             self.ui.descriptionEdit.setPlainText(data[sitecol["desc"]])
-            title = "Edit site #%d" % data[sitecol["id"]]
+            title = f"Edit site #{data[sitecol['id']]}"
         # set unit
         if data[sitecol["id_units"]]:
             self.ui.unitCombo.setCurrentIndex(model.id2row[data[sitecol["id_units"]]])
@@ -106,7 +106,7 @@ class DialogAddEditData(QtWidgets.QDialog):
             self.ui.azimuthEdit.setText(str(data[datacol["azi"]]))
             self.ui.inclinationEdit.setText(str(data[datacol["inc"]]))
             self.ui.descriptionEdit.setPlainText(data[datacol["desc"]])
-            title = "Edit record #%d" % data[datacol["id"]]
+            title = f"Edit record #{data[datacol['id']]}"
         # let's add view of the data source we just created:
         self.ui.taggedView.setModel(tags)
         self.ui.taggedView.setColumnHidden(tagcol["id"], True)
@@ -225,7 +225,7 @@ class DialogAddEditStructure(QtWidgets.QDialog):
                 self.ui.radioPlanar.setChecked(True)
             else:
                 self.ui.radioLinear.setChecked(True)
-            title = "Edit structure #%d" % data[structurecol["id"]]
+            title = f"Edit structure #{data[structurecol['id']]}"
         # set title
         self.setWindowTitle(
             QtWidgets.QApplication.translate("DialogAddEditStructure", title)
@@ -274,7 +274,7 @@ class DialogAddEditUnit(QtWidgets.QDialog):
         else:
             self.ui.unitnameEdit.setText(data[unitcol["name"]])
             self.ui.descriptionEdit.setPlainText(data[unitcol["desc"]])
-            title = "Edit unit #%d" % data[unitcol["id"]]
+            title = f"Edit unit #{data[unitcol['id']]}"
         # set title
         self.setWindowTitle(
             QtWidgets.QApplication.translate("DialogAddEditUnit", title)
@@ -312,7 +312,7 @@ class DialogAddEditTag(QtWidgets.QDialog):
         else:
             self.ui.tagnameEdit.setText(data[tagcol["name"]])
             self.ui.descriptionEdit.setPlainText(data[tagcol["desc"]])
-            title = "Edit tag #%d" % data[tagcol["id"]]
+            title = f"Edit tag #{data[tagcol['id']]}"
         # set title
         self.setWindowTitle(QtWidgets.QApplication.translate("DialogAddEditTag", title))
         self.ui.tagnameEdit.setFocus()
@@ -473,21 +473,25 @@ class DialogImportSetting(QtWidgets.QDialog):
         # set combos
         lprops = [p.lower() for p in properties]
         self.ui.siteComboFile.addItems(properties)
-        if "name" in lprops:
-            self.ui.siteComboFile.setCurrentIndex(lprops.index("name"))
+        cands = [e for e in lprops if e.startswith('name') | e.startswith('site')]
+        if cands:
+            self.ui.siteComboFile.setCurrentIndex(lprops.index(cands[0]))
         if geom:
             self.ui.lonComboFile.addItems(properties)
-            if "lon" in lprops:
-                self.ui.lonComboFile.setCurrentIndex(lprops.index("lon"))
+            cands = [e for e in lprops if e.startswith('lon') | e.startswith('x')]
+            if cands:
+                self.ui.lonComboFile.setCurrentIndex(lprops.index(cands[0]))
             self.ui.latComboFile.addItems(properties)
-            if "lat" in lprops:
-                self.ui.latComboFile.setCurrentIndex(lprops.index("lat"))
+            cands = [e for e in lprops if e.startswith('lat') | e.startswith('y')]
+            if cands:
+                self.ui.latComboFile.setCurrentIndex(lprops.index(cands[0]))
         else:
             self.ui.lonComboFile.setEnabled(False)
             self.ui.latComboFile.setEnabled(False)
         self.ui.unitComboFile.addItems(properties)
-        if "unit" in lprops:
-            self.ui.unitComboFile.setCurrentIndex(lprops.index("unit"))
+        cands = [e for e in lprops if e.startswith('unit') | e.startswith('domain')]
+        if cands:
+            self.ui.unitComboFile.setCurrentIndex(lprops.index(cands[0]))
         self.ui.unitCombo.setModel(model)
         self.ui.unitCombo.setModelColumn(1)
 

@@ -346,7 +346,62 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.importSites(sites)
 
     def importSitesFromCSV(self):
-        pass
+        file, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Open CSV file",
+            str(self.lastdir),
+            "CSV file (*.csv);;All Files (*)",
+        )
+        fname = Path(file)
+        if fname.is_file():
+            import csv
+
+            with fname.open() as src:
+                sample = src.read(1024)
+                dialect = csv.Sniffer().sniff(sample)
+                has_header = csv.Sniffer().has_header(sample)
+                src.seek(0)
+                # Create a new reader object using the CSV dialect
+                data = list(csv.reader(src, dialect=dialect))
+                if has_header:
+                    columns = data[0]
+                    data = data[1:]
+                else:
+                    columns = [f'Col {n+1}' for n in range(len(data[0]))]
+                sites = []
+                propsdlg = DialogImportSetting(self.units, columns, geom=True)
+                if propsdlg.exec_():
+                    if propsdlg.ui.radioUnitExisting.isChecked():
+                        unit_id = self.units.row2id[
+                            propsdlg.ui.unitCombo.currentIndex()
+                        ]
+                    for row in data:
+                        x = float(row[propsdlg.ui.lonComboFile.currentIndex()])
+                        y = float(row[propsdlg.ui.latComboFile.currentIndex()])
+                        sname = str(row[propsdlg.ui.siteComboFile.currentIndex()])
+                        if propsdlg.ui.radioUnitFile.isChecked():
+                            uname = str(row[propsdlg.ui.unitComboFile.currentIndex()])
+                            res = self.conn.execute(
+                                "SELECT id FROM units WHERE name=?",
+                                (uname,),
+                            ).fetchall()
+                            if res:
+                                unit_id = res[0][0]
+                            else:
+                                cur = self.db_addUnit([-1, uname, ""])
+                                unit_id = cur.lastrowid
+                                self.units.appendRow([unit_id, uname, ""])
+                        sites.append(
+                            (
+                                sname,    # name
+                                x,        # x_coord
+                                y,        # y_coord
+                                "",       # description
+                                unit_id,  # id_units
+                            )
+                        )
+                    self.units.updateIndex()
+                    self.importSites(sites)
 
     def importSitesFromGeoJSON(self):
         file, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -359,8 +414,8 @@ class MainWindow(QtWidgets.QMainWindow):
         if fname.is_file():
             import json
 
-            with fname.open() as f:
-                data = json.load(f)
+            with fname.open() as src:
+                data = json.load(src)
 
             if data["type"] == "FeatureCollection":
                 if len(data["features"]) > 0:
@@ -391,13 +446,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                         self.units.appendRow([unit_id, uname, ""])
                                 sites.append(
                                     (
-                                        sname,  # name
-                                        x,  # x_coord
-                                        y,  # y_coord
-                                        "",  # description
-                                        unit_id,
+                                        sname,     # name
+                                        x,         # x_coord
+                                        y,         # y_coord
+                                        "",        # description
+                                        unit_id,   # id_units
                                     )
-                                )  # id_units
+                                )
                             self.units.updateIndex()
                             self.importSites(sites)
                     else:
@@ -437,7 +492,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
         self.ui.sitesView.setFocus()
         self.statusBar().showMessage(
-            "%d sites successfully imported." % len(data), 5000
+            f"{len(data)} sites successfully imported.", 5000
         )
 
     def compactDatabase(self):
@@ -772,7 +827,7 @@ class MainWindow(QtWidgets.QMainWindow):
             nconn.commit()
             nconn.close()
             self.statusBar().showMessage(
-                "Database successfully exported to %s" % p.name, 5000
+                f"Database successfully exported to {p.name}", 5000
             )
 
     def checkDatabase(self):
@@ -1139,7 +1194,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 self.ui.sitesView.setFocus()
                 self.statusBar().showMessage(
-                    "%d sites and %d data have been deleted." % (len(rows), count), 5000
+                    f"{len(rows)} sites and {count} data have been deleted.", 5000
                 )
             if reply == QtWidgets.QMessageBox.Save:
                 allsites = [item[:2] for item in self.sites._items]
@@ -1191,8 +1246,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.id2row[desid],sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
                     # self.ui.sitesView.setFocus()
                     self.statusBar().showMessage(
-                        "%d sites and %d data have been deleted." % (len(rows), count),
-                        5000,
+                        f"{len(rows)} sites and {count} data have been deleted.", 5000
                     )
 
     def filterSiteDlg(self):
@@ -1213,10 +1267,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 self.sortsites.setFilterKeyColumn(sitecol["id_units"])
                 self.ui.pushSiteFilter.setChecked(True)
+                funame = self.sitefilterdlg.ui.unitCombo.currentText()
                 self.statusBar().showMessage(
-                    "Sites filtered to unit %s"
-                    % self.sitefilterdlg.ui.unitCombo.currentText(),
-                    5000,
+                    f"Sites filtered to unit {funame}", 5000
                 )
             elif self.sitefilterdlg.ui.radioName.isChecked():
                 self.sortsites.setFilterWildcard(
@@ -1224,10 +1277,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 self.sortsites.setFilterKeyColumn(sitecol["name"])
                 self.ui.pushSiteFilter.setChecked(True)
+                fsname = self.sitefilterdlg.ui.nameEdit.text()
                 self.statusBar().showMessage(
-                    "Sites filtered to name contains %s"
-                    % self.sitefilterdlg.ui.nameEdit.text(),
-                    5000,
+                    f"Sites filtered to name contains {fsname}", 5000
                 )
             else:
                 self.sortsites.setFilterRegExp("")
@@ -1327,7 +1379,7 @@ class MainWindow(QtWidgets.QMainWindow):
         else:
             # prepare attach list
             attachlist = [
-                [row[0], "%d/%d - %s" % (row[1], row[2], row[3])]
+                [row[0], f"{row[1]}/{row[2]} - {row[3]}"]
                 for row in self.conn.execute(
                     "SELECT structdata.id,azimuth, inclination, structype.structure FROM structdata INNER JOIN structype ON structype.id = structdata.id_structype WHERE structype.planar=1 AND structdata.id_sites=? ORDER BY structdata.id",
                     (indexlist[0].data(),),
@@ -1373,7 +1425,7 @@ class MainWindow(QtWidgets.QMainWindow):
             siteid = data[datacol["id_sites"]]
             # prepare attach list
             attachlist = [
-                [row[0], "%d/%d - %s" % (row[1], row[2], row[3])]
+                [row[0], f"{row[1]}/{row[2]} - {row[3]}"]
                 for row in self.conn.execute(
                     "SELECT structdata.id,azimuth, inclination, structype.structure FROM structdata INNER JOIN structype ON structype.id = structdata.id_structype WHERE structype.planar=1 AND structdata.id_sites=? AND structdata.id <> ? ORDER BY structdata.id",
                     (siteid, id),
@@ -1479,16 +1531,14 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.datafilterdlg.exec_():
             self.do_filterdata()
             if self.datafilterdlg.ui.radioStructure.isChecked():
+                stname = self.datafilterdlg.ui.structureCombo.currentText()
                 self.statusBar().showMessage(
-                    "Data filtered to structure %s"
-                    % self.datafilterdlg.ui.structureCombo.currentText(),
-                    5000,
+                    f"Data filtered to structure {stname}", 5000
                 )
             elif self.datafilterdlg.ui.radioTag.isChecked():
+                tgname = self.datafilterdlg.ui.nameTag.text()
                 self.statusBar().showMessage(
-                    "Data filtered to tags contains %s"
-                    % self.datafilterdlg.ui.nameTag.text(),
-                    5000,
+                    f"Data filtered to tags contains {tgname}", 5000
                 )
             else:
                 self.statusBar().showMessage("All data shown", 5000)
@@ -1583,13 +1633,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 dlg.data[structurecol["id"]] = cur.lastrowid
                 self.structures.appendRow(dlg.data)
                 self.statusBar().showMessage(
-                    "Structure %s added." % dlg.data[structurecol["structure"]], 5000
+                    f"Structure {dlg.data[structurecol['structure']]} added.", 5000
                 )
                 self.ui.structuresView.scrollToBottom()
             else:
                 self.statusBar().showMessage(
-                    "Structure %s already exists."
-                    % dlg.data[structurecol["structure"]],
+                    f"Structure {dlg.data[structurecol['structure']]} already exists.",
                     5000,
                 )
             # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
@@ -1603,12 +1652,11 @@ class MainWindow(QtWidgets.QMainWindow):
             if cur.rowcount > 0:
                 self.structures.updateRow(index, dlg.data)
                 self.statusBar().showMessage(
-                    "Structure %s updated." % dlg.data[structurecol["structure"]], 5000
+                    f"Structure {dlg.data[structurecol['structure']]} updated.", 5000
                 )
             else:
                 self.statusBar().showMessage(
-                    "Structure %s already exists."
-                    % dlg.data[structurecol["structure"]],
+                    f"Structure {dlg.data[structurecol['structure']]} already exists.",
                     5000,
                 )
 
@@ -1627,8 +1675,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if len(others) > 0:
                 dlg = DialogSaveDiscard(
                     [r[1] for r in others],
-                    "Do you want to delete structure %s and all related data?"
-                    % todel[structurecol["structure"]],
+                    f"Do you want to delete structure {todel[structurecol['structure']]} and all related data?",
                     "Assign another structure to data:",
                 )
                 if dlg.exec_():
@@ -1646,8 +1693,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.structures.removeRow(index)
                     self.siteselChanged()
                     self.statusBar().showMessage(
-                        "Structure %s and %d data have been deleted."
-                        % (todel[structurecol["structure"]], count),
+                        f"Structure {todel[structurecol['structure']]} and {count} data have been deleted.",
                         5000,
                     )
             else:
@@ -1763,7 +1809,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.ui.unitsView.scrollToBottom()
             else:
                 self.statusBar().showMessage(
-                    "Unit %s already exists." % dlg.data[unitcol["name"]], 5000
+                    f"Unit {dlg.data[unitcol['name']]} already exists.", 5000
                 )
             # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
             self.ui.unitsView.setFocus()
@@ -1776,11 +1822,11 @@ class MainWindow(QtWidgets.QMainWindow):
             if cur.rowcount > 0:
                 self.units.updateRow(index, dlg.data)
                 self.statusBar().showMessage(
-                    "Unit %s updated." % dlg.data[unitcol["name"]], 5000
+                    f"Unit {dlg.data[unitcol['name']]} updated.", 5000
                 )
             else:
                 self.statusBar().showMessage(
-                    "Unit %s already exists." % dlg.data[unitcol["name"]], 5000
+                    f"Unit {dlg.data[unitcol['name']]} already exists.", 5000
                 )
 
     def removeUnitDlg(self):
@@ -1797,8 +1843,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if len(others) > 0:
                 dlg = DialogSaveDiscard(
                     [r[1] for r in others],
-                    "Do you want to delete unit %s and all related sites and data?"
-                    % todel[unitcol["name"]],
+                    f"Do you want to delete unit {todel[unitcol['name']]} and all related sites and data?",
                     "Assign another unit to sites:",
                 )
                 if dlg.exec_():
@@ -1825,8 +1870,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     self.units.removeRow(index)
                     # self.sortsites.reset()
                     self.statusBar().showMessage(
-                        "Unit %s, %d sites and %d data have been deleted."
-                        % (todel[unitcol["name"]], scount, dcount),
+                        f"Unit {todel[unitcol['name']]}, {scount} sites and {dcount} data have been deleted.",
                         5000,
                     )
             else:
@@ -1922,12 +1966,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 dlg.data[tagcol["id"]] = cur.lastrowid
                 self.tags.appendRow(dlg.data)
                 self.statusBar().showMessage(
-                    "Tag %s added." % dlg.data[tagcol["name"]], 5000
+                    f"Tag {dlg.data[tagcol['name']]} added.", 5000
                 )
                 self.ui.tagsView.scrollToBottom()
             else:
                 self.statusBar().showMessage(
-                    "Tag %s already exists." % dlg.data[tagcol["name"]], 5000
+                    f"Tag {dlg.data[tagcol['name']]} already exists.", 5000
                 )
             # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
             self.ui.tagsView.setFocus()
@@ -1940,11 +1984,11 @@ class MainWindow(QtWidgets.QMainWindow):
             if cur.rowcount > 0:
                 self.tags.updateRow(index, dlg.data)
                 self.statusBar().showMessage(
-                    "Tag %s updated." % dlg.data[tagcol["name"]], 5000
+                    f"Tag {dlg.data[tagcol['name']]} added.", 5000
                 )
             else:
                 self.statusBar().showMessage(
-                    "Tag %s already exists." % dlg.data[tagcol["name"]], 5000
+                    f"Tag {dlg.data[tagcol['name']]} already exists.", 5000
                 )
 
     def removeTagDlg(self):
@@ -1960,7 +2004,7 @@ class MainWindow(QtWidgets.QMainWindow):
             ]
             dlg = DialogSaveDiscard(
                 [r[1] for r in others],
-                "Do you want to delete tag %s?" % todel[tagcol["name"]],
+                f"Do you want to delete tag {todel[tagcol['name']]}?",
                 "Assign another tag to data:",
             )
             if dlg.exec_():
@@ -1976,7 +2020,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 # self.sortsites.reset()
                 self.siteselChanged()
                 self.statusBar().showMessage(
-                    "Tag %s have been deleted." % todel[tagcol["name"]], 5000
+                    f"Tag {todel[tagcol['name']]} have been deleted.", 5000
                 )
 
     def moveTagUp(self):

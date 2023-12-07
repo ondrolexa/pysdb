@@ -2,6 +2,9 @@
 name: pysdb
 
 dependencies:
-- python=3.8
-- lxml
-- pyqt=5
+  - python>=3.8
+  - lxml
+  - pyqt>=5
+  - pip
+  - pip:
+      - -e . # install the local pysdb package
