@@ -37,11 +37,9 @@ from .dialogs import (
 )
 from .ui_pysdb3 import Ui_MainWindow
 
-__version__ = "3.1.0"
+__version__ = "3.1.1"
 __about__ = """<b>PySDB - structural database manager v.{}</b>
-               <p>Copyright (c) 2021 Ondrej Lexa.
-               All rights reserved in accordance with
-               GPL v2 or later - NO WARRANTIES!</p>"""
+               <p>Copyright (c) 2021-2025 Ondrej Lexa</p>"""
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -367,7 +365,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     columns = data[0]
                     data = data[1:]
                 else:
-                    columns = [f'Col {n+1}' for n in range(len(data[0]))]
+                    columns = [f"Col {n + 1}" for n in range(len(data[0]))]
                 sites = []
                 propsdlg = DialogImportSetting(self.units, columns, geom=True)
                 if propsdlg.exec_():
@@ -393,10 +391,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                 self.units.appendRow([unit_id, uname, ""])
                         sites.append(
                             (
-                                sname,    # name
-                                x,        # x_coord
-                                y,        # y_coord
-                                "",       # description
+                                sname,  # name
+                                x,  # x_coord
+                                y,  # y_coord
+                                "",  # description
                                 unit_id,  # id_units
                             )
                         )
@@ -446,11 +444,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                         self.units.appendRow([unit_id, uname, ""])
                                 sites.append(
                                     (
-                                        sname,     # name
-                                        x,         # x_coord
-                                        y,         # y_coord
-                                        "",        # description
-                                        unit_id,   # id_units
+                                        sname,  # name
+                                        x,  # x_coord
+                                        y,  # y_coord
+                                        "",  # description
+                                        unit_id,  # id_units
                                     )
                                 )
                             self.units.updateIndex()
@@ -491,9 +489,7 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
         self.ui.sitesView.setFocus()
-        self.statusBar().showMessage(
-            f"{len(data)} sites successfully imported.", 5000
-        )
+        self.statusBar().showMessage(f"{len(data)} sites successfully imported.", 5000)
 
     def compactDatabase(self):
         if self.changed:
@@ -1268,9 +1264,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.sortsites.setFilterKeyColumn(sitecol["id_units"])
                 self.ui.pushSiteFilter.setChecked(True)
                 funame = self.sitefilterdlg.ui.unitCombo.currentText()
-                self.statusBar().showMessage(
-                    f"Sites filtered to unit {funame}", 5000
-                )
+                self.statusBar().showMessage(f"Sites filtered to unit {funame}", 5000)
             elif self.sitefilterdlg.ui.radioName.isChecked():
                 self.sortsites.setFilterWildcard(
                     "*" + self.sitefilterdlg.ui.nameEdit.text() + "*"
