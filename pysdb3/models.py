@@ -20,7 +20,7 @@ pragma default_cache_size=2000;
 pragma encoding='UTF-8';
 pragma page_size=1024;
 drop table if exists sites;
-CREATE TABLE sites (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_units integer NOT NULL DEFAULT 0, name varchar(16) NOT NULL DEFAULT '', x_coord double DEFAULT NULL, y_coord double DEFAULT NULL, description text);
+CREATE TABLE sites (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_units integer NOT NULL DEFAULT 0, name varchar(16) NOT NULL UNIQUE, x_coord double DEFAULT NULL, y_coord double DEFAULT NULL, description text);
 drop table if exists structdata;
 CREATE TABLE structdata (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_sites integer NOT NULL DEFAULT 0, id_structype integer NOT NULL DEFAULT 0, azimuth double NOT NULL DEFAULT 0, inclination double NOT NULL DEFAULT 0, description text);
 drop table if exists structype;
@@ -32,7 +32,7 @@ CREATE TABLE tags (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, pos integer NO
 drop table if exists units;
 CREATE TABLE units (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, pos integer NOT NULL DEFAULT 0, name varchar(60) NOT NULL UNIQUE, description text);
 drop table if exists attach;
-CREATE TABLE attach (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_structdata_planar integer NOT NULL DEFAULT '0', id_structdata_linear integer NOT NULL DEFAULT '0');
+CREATE TABLE attach (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, id_structdata_planar integer NOT NULL, id_structdata_linear integer NOT NULL);
 drop table if exists meta;
 CREATE TABLE meta (id integer NOT NULL PRIMARY KEY AUTOINCREMENT, name varchar(16) NOT NULL UNIQUE, value text);"""
 

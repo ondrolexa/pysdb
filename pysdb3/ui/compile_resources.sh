@@ -9,6 +9,7 @@ pyuic5 --from-imports -o ../ui_savediscard.py savediscard.ui
 pyuic5 --from-imports -o ../ui_datafilter.py datafilter.ui
 pyuic5 --from-imports -o ../ui_sitefilter.py sitefilter.ui
 pyuic5 --from-imports -o ../ui_sdbinfo.py sdbinfo.ui
+pyuic5 --from-imports -o ../ui_sdbreport.py sdbreport.ui
 pyuic5 --from-imports -o ../ui_importsitesfile.py importsitesfile.ui
 pyuic5 --from-imports -o ../ui_selectunit.py selectunit.ui
 pyuic5 --from-imports -o ../ui_multieditdata.py multieditdata.ui

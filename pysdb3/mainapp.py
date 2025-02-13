@@ -24,6 +24,7 @@ from .models import (
 from .dialogs import (
     DialogImportSetting,
     DialogSDBInfo,
+    DialogSDBReport,
     DialogSiteFilter,
     DialogDataFilter,
     DialogSelectUnit,
@@ -37,7 +38,7 @@ from .dialogs import (
 )
 from .ui_pysdb3 import Ui_MainWindow
 
-__version__ = "3.1.1"
+__version__ = "3.2.0"
 __about__ = """<b>PySDB - structural database manager v.{}</b>
                <p>Copyright (c) 2021-2025 Ondrej Lexa</p>"""
 
@@ -284,7 +285,7 @@ class MainWindow(QtWidgets.QMainWindow):
             p = Path(fname)
             if not p.suffix:
                 p = p.with_suffix(".sdb")
-            self.conn = sqlite3.connect(str(p))
+            self.conn = sqlite3.connect(p)
             self.conn.text_factory = str
             # Create schema of database
             for sql in SCHEMA.splitlines():
@@ -314,8 +315,8 @@ class MainWindow(QtWidgets.QMainWindow):
             # commit
             self.dbcommit()
             self.connectDatabase(p)
-            self.changed = False
             self.addtorecent(p)
+            self.changed = False
 
     def importSitesFromGPX(self):
         file, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -428,7 +429,10 @@ class MainWindow(QtWidgets.QMainWindow):
                                 ]
                             for feature in data["features"]:
                                 fp = feature["properties"]
-                                x, y = feature["geometry"]["coordinates"]
+                                if len(feature["geometry"]["coordinates"]) > 2:
+                                    x, y, _ = feature["geometry"]["coordinates"]
+                                else:
+                                    x, y = feature["geometry"]["coordinates"]
                                 sname = fp[propsdlg.ui.siteComboFile.currentText()]
                                 if propsdlg.ui.radioUnitFile.isChecked():
                                     uname = fp[propsdlg.ui.unitComboFile.currentText()]
@@ -473,23 +477,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
 
     def importSites(self, data):
+        added = 0
         for rec in data:
-            id = self.conn.execute(
-                "INSERT INTO sites (name,x_coord,y_coord,description,id_units) VALUES (?,?,?,?,?)",
-                rec,
-            ).lastrowid
-            self.sites.appendRow([id] + list(rec))
-        self.dbcommit()
-        self.changed = True
-        # set focus on added item
-        index = self.sortsites.mapFromSource(self.sites.createIndex(0, sitecol["name"]))
-        self.siteSelection.setCurrentIndex(
-            index,
-            QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows,
-        )
-        self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
-        self.ui.sitesView.setFocus()
-        self.statusBar().showMessage(f"{len(data)} sites successfully imported.", 5000)
+            id = self.db_addSite(rec)
+            if id is not None:
+                self.sites.appendRow([id] + list(rec))
+                added += 1
+        if added > 0:
+            # self.dbcommit()
+            self.changed = True
+            # set focus on added item
+            index = self.sortsites.mapFromSource(
+                self.sites.createIndex(0, sitecol["name"])
+            )
+            self.siteSelection.setCurrentIndex(
+                index,
+                QtCore.QItemSelectionModel.ClearAndSelect
+                | QtCore.QItemSelectionModel.Rows,
+            )
+            self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
+            self.ui.sitesView.setFocus()
+            self.statusBar().showMessage(f"{added} sites successfully imported.", 5000)
+        else:
+            self.statusBar().showMessage("All sites already exists.", 5000)
 
     def compactDatabase(self):
         if self.changed:
@@ -727,7 +737,7 @@ class MainWindow(QtWidgets.QMainWindow):
             p = Path(fname)
             if not p.suffix:
                 p = p.with_suffix(".sdb")
-            nconn = sqlite3.connect(str(p))
+            nconn = sqlite3.connect(p)
             nconn.text_factory = str
             # Create schema of database
             for sql in SCHEMA.splitlines():
@@ -742,60 +752,48 @@ class MainWindow(QtWidgets.QMainWindow):
             if not created:
                 created = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
             nconn.execute(
-                "INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)",
+                "INSERT INTO meta (name,value) VALUES (?,?)",
                 ("version", __version__),
             )
+            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", crs))
             nconn.execute(
-                "INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)", ("crs", crs)
-            )
-            nconn.execute(
-                "INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)",
+                "INSERT INTO meta (name,value) VALUES (?,?)",
                 ("created", created),
             )
             nconn.execute(
-                "INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)",
+                "INSERT INTO meta (name,value) VALUES (?,?)",
                 ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")),
             )
             nconn.execute(
-                "INSERT OR REPLACE INTO meta (name,value) VALUES (?,?)",
+                "INSERT INTO meta (name,value) VALUES (?,?)",
                 ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")),
             )
-            # Insert default data from template
-            for sql in DEFDATA.splitlines():
-                nconn.execute(sql)
-            # transfer tables
-            ins = """INSERT OR REPLACE INTO sites ('id','id_units','name','x_coord','y_coord','description') VALUES (?,?,?,?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM sites").fetchall():
-                nconn.execute(
-                    ins,
-                    (
-                        int(row[0]),
-                        int(row[1]),
-                        row[2],
-                        float(row[3]),
-                        float(row[4]),
-                        row[5],
-                    ),
-                )
-            ins = """INSERT OR REPLACE INTO structdata ('id','id_sites','id_structype','azimuth','inclination','description') VALUES (?,?,?,?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM structdata").fetchall():
-                nconn.execute(
-                    ins,
-                    (
-                        int(row[0]),
-                        int(row[1]),
-                        int(row[2]),
-                        float(row[3]),
-                        float(row[4]),
-                        row[5],
-                    ),
-                )
-            ins = """INSERT OR REPLACE INTO structype ('id','pos','structure','description','structcode','groupcode','planar') VALUES (?,?,?,?,?,?,?)"""
+            # read, check translate
+            errors = []
+            units = {}
+            ins = """INSERT OR IGNORE INTO units ('pos','name','description') VALUES (?,?,?)"""
+            for row in self.conn.execute("SELECT * FROM units").fetchall():
+                res = nconn.execute(ins, (int(row[1]), row[2], row[3]))
+                if res.rowcount > 0:
+                    units[int(row[0])] = res.lastrowid
+                else:
+                    errors.append(f"Units record: {row}")
+
+            tags = {}
+            ins = """INSERT OR IGNORE INTO tags ('pos','name','description') VALUES (?,?,?)"""
+            for row in self.conn.execute("SELECT * FROM tags").fetchall():
+                res = nconn.execute(ins, (int(row[1]), row[2], row[3]))
+                if res.rowcount > 0:
+                    tags[int(row[0])] = res.lastrowid
+                else:
+                    errors.append(f"Tags record: {row}")
+
+            structypes = {}
+            ins = """INSERT OR IGNORE INTO structype ('pos','structure','description','structcode','groupcode','planar') VALUES (?,?,?,?,?,?)"""
             for row in self.conn.execute("SELECT * FROM structype").fetchall():
-                nconn.execute(
+                res = nconn.execute(
                     ins,
                     (
-                        int(row[0]),
                         int(row[1]),
                         row[2],
                         row[3],
@@ -804,27 +802,76 @@ class MainWindow(QtWidgets.QMainWindow):
                         int(row[6]),
                     ),
                 )
-            ins = """INSERT OR REPLACE INTO tagged ('id','id_tags','id_structdata') VALUES (?,?,?)"""
+                if res.rowcount > 0:
+                    structypes[int(row[0])] = res.lastrowid
+                else:
+                    errors.append(f"Structype record: {row}")
+
+            sites = {}
+            ins = """INSERT OR IGNORE INTO sites ('id_units','name','x_coord','y_coord','description') VALUES (?,?,?,?,?)"""
+            for row in self.conn.execute("SELECT * FROM sites").fetchall():
+                if int(row[1]) in units:
+                    id_unit = units[int(row[1])]
+                    res = nconn.execute(
+                        ins, (id_unit, row[2], float(row[3]), float(row[4]), row[5])
+                    )
+                    if res.rowcount > 0:
+                        sites[int(row[0])] = res.lastrowid
+                    else:
+                        errors.append(f"Sites record: {row}")
+                else:
+                    errors.append(f"Sites(unit) record: {row}")
+
+            structdata = {}
+            ins = """INSERT OR IGNORE INTO structdata ('id_sites','id_structype','azimuth','inclination','description') VALUES (?,?,?,?,?)"""
+            for row in self.conn.execute("SELECT * FROM structdata").fetchall():
+                if int(row[1]) in sites:
+                    id_site = sites[int(row[1])]
+                    if int(row[2]) in structypes:
+                        id_type = structypes[int(row[2])]
+                        res = nconn.execute(
+                            ins,
+                            (id_site, id_type, float(row[3]), float(row[4]), row[5]),
+                        )
+                        if res.rowcount > 0:
+                            structdata[int(row[0])] = res.lastrowid
+                        else:
+                            errors.append(f"Structdata record: {row}")
+                    else:
+                        errors.append(f"Structdata(structype) record: {row}")
+                else:
+                    errors.append(f"Structdata(site) record: {row}")
+
+            ins = """INSERT OR IGNORE INTO tagged ('id_tags','id_structdata') VALUES (?,?)"""
             for row in self.conn.execute("SELECT * FROM tagged").fetchall():
-                nconn.execute(ins, (int(row[0]), int(row[1]), int(row[2])))
-            ins = """INSERT OR REPLACE INTO tags ('id','pos','name','description') VALUES (?,?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM tags").fetchall():
-                nconn.execute(ins, (int(row[0]), int(row[1]), row[2], row[3]))
-            ins = """INSERT OR REPLACE INTO units ('id','pos','name','description') VALUES (?,?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM units").fetchall():
-                nconn.execute(ins, (int(row[0]), int(row[1]), row[2], row[3]))
-            ins = """INSERT OR REPLACE INTO attach ('id','id_structdata_planar','id_structdata_linear') VALUES (?,?,?)"""
+                if int(row[1]) in tags:
+                    id_tag = tags[int(row[1])]
+                    if int(row[2]) in structdata:
+                        id_data = structdata[int(row[2])]
+                        nconn.execute(ins, (id_tag, id_data))
+                    else:
+                        errors.append(f"Tagged(tag) record: {row}")
+                else:
+                    errors.append(f"Tagged(strucdata) record: {row}")
+
+            ins = """INSERT OR IGNORE INTO attach ('id_structdata_planar','id_structdata_linear') VALUES (?,?)"""
             for row in self.conn.execute("SELECT * FROM attach").fetchall():
-                nconn.execute(ins, (int(row[0]), int(row[1]), int(row[2])))
-            # ins = """INSERT OR REPLACE INTO meta ('id','name','value') VALUES (?,?,?)"""
-            # for row in self.conn.execute('SELECT * FROM meta').fetchall():
-            #     nconn.execute(ins, (int(row[0]), row[1], row[2]))
-            # commit
+                if int(row[1]) in structdata:
+                    id_planar = structdata[int(row[1])]
+                    if int(row[2]) in structdata:
+                        id_linear = structdata[int(row[2])]
+                        nconn.execute(ins, (id_planar, id_linear))
+                    else:
+                        errors.append(f"Attach(strucdata-planar) record: {row}")
+                else:
+                    errors.append(f"Attach(strucdata-linear) record: {row}")
+
             nconn.commit()
             nconn.close()
-            self.statusBar().showMessage(
-                f"Database successfully exported to {p.name}", 5000
-            )
+            self.openFileSDB(False, p)
+            if errors:
+                dlg = DialogSDBReport("\n".join(errors))
+                dlg.exec_()
 
     def checkDatabase(self):
         """Check and possibly fix database"""
@@ -1116,19 +1163,26 @@ class MainWindow(QtWidgets.QMainWindow):
         dlg = DialogAddEditSite(self.units, "Add")
         if dlg.exec_():
             id = self.db_addSite(dlg.data[1:])
-            self.sites.appendRow([id] + dlg.data[1:])
-            # set focus on added item
-            index = self.sortsites.mapFromSource(
-                self.sites.createIndex(self.sites.rowCount() - 1, sitecol["name"])
-            )
-            self.siteSelection.setCurrentIndex(
-                index,
-                QtCore.QItemSelectionModel.ClearAndSelect
-                | QtCore.QItemSelectionModel.Rows,
-            )
-            self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
-            # self.ui.sitesView.scrollToBottom()
-            self.ui.sitesView.setFocus()
+            if id is not None:
+                self.sites.appendRow([id] + dlg.data[1:])
+                # set focus on added item
+                index = self.sortsites.mapFromSource(
+                    self.sites.createIndex(self.sites.rowCount() - 1, sitecol["name"])
+                )
+                self.siteSelection.setCurrentIndex(
+                    index,
+                    QtCore.QItemSelectionModel.ClearAndSelect
+                    | QtCore.QItemSelectionModel.Rows,
+                )
+                self.ui.sitesView.scrollTo(
+                    index, QtWidgets.QAbstractItemView.EnsureVisible
+                )
+                # self.ui.sitesView.scrollToBottom()
+                self.ui.sitesView.setFocus()
+            else:
+                self.statusBar().showMessage(
+                    f"Site {dlg.data[1]} already exists.", 5000
+                )
 
     def editSiteDlg(self, index=None):
         """Open site dialog to edit data."""
@@ -1282,11 +1336,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def db_addSite(self, data):
         """Add site data database."""
-        self.changed = True
-        return self.conn.execute(
-            "INSERT INTO sites (name,x_coord,y_coord,description,id_units) VALUES (?,?,?,?,?)",
+        res = self.conn.execute(
+            "INSERT OR IGNORE INTO sites (name,x_coord,y_coord,description,id_units) VALUES (?,?,?,?,?)",
             data,
-        ).lastrowid
+        )
+        if res.rowcount > 0:
+            self.changed = True
+            return res.lastrowid
 
     def db_updateSite(self, data):
         """Update site data in database."""

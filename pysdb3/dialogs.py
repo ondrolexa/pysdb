@@ -11,6 +11,7 @@ from .ui_savediscard import Ui_SaveDiscardDialog
 from .ui_datafilter import Ui_DataFilterDialog
 from .ui_sitefilter import Ui_SiteFilterDialog
 from .ui_sdbinfo import Ui_DialogSDBInfo
+from .ui_sdbreport import Ui_DialogSDBReport
 from .ui_importsitesfile import Ui_DialogImportSitesFile
 from .ui_selectunit import Ui_DialogSelectUnit
 from .ui_multieditdata import Ui_DialogMultiEditData
@@ -358,6 +359,20 @@ class DialogSDBInfo(QtWidgets.QDialog):
             return
 
 
+class DialogSDBReport(QtWidgets.QDialog):
+    def __init__(self, info, parent=None):
+        super(DialogSDBReport, self).__init__(parent)
+
+        self.ui = Ui_DialogSDBReport()
+        self.ui.setupUi(self)
+        # populate widgets
+        self.ui.reportEdit.setPlainText(info)
+        self.ui.reportEdit.setFocus()
+
+    def accept(self):
+        QtWidgets.QDialog.accept(self)
+
+
 class DialogSaveDiscard(QtWidgets.QDialog):
     # structurecol = {'id':0,'structure':1,'planar':2,'desc':3,'scode':4,'gcode':5}
     def __init__(self, items, message, label, parent=None):
@@ -473,23 +488,23 @@ class DialogImportSetting(QtWidgets.QDialog):
         # set combos
         lprops = [p.lower() for p in properties]
         self.ui.siteComboFile.addItems(properties)
-        cands = [e for e in lprops if e.startswith('name') | e.startswith('site')]
+        cands = [e for e in lprops if e.startswith("name") | e.startswith("site")]
         if cands:
             self.ui.siteComboFile.setCurrentIndex(lprops.index(cands[0]))
         if geom:
             self.ui.lonComboFile.addItems(properties)
-            cands = [e for e in lprops if e.startswith('lon') | e.startswith('x')]
+            cands = [e for e in lprops if e.startswith("lon") | e.startswith("x")]
             if cands:
                 self.ui.lonComboFile.setCurrentIndex(lprops.index(cands[0]))
             self.ui.latComboFile.addItems(properties)
-            cands = [e for e in lprops if e.startswith('lat') | e.startswith('y')]
+            cands = [e for e in lprops if e.startswith("lat") | e.startswith("y")]
             if cands:
                 self.ui.latComboFile.setCurrentIndex(lprops.index(cands[0]))
         else:
             self.ui.lonComboFile.setEnabled(False)
             self.ui.latComboFile.setEnabled(False)
         self.ui.unitComboFile.addItems(properties)
-        cands = [e for e in lprops if e.startswith('unit') | e.startswith('domain')]
+        cands = [e for e in lprops if e.startswith("unit") | e.startswith("domain")]
         if cands:
             self.ui.unitComboFile.setCurrentIndex(lprops.index(cands[0]))
         self.ui.unitCombo.setModel(model)
