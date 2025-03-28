@@ -1194,11 +1194,21 @@ class MainWindow(QtWidgets.QMainWindow):
         # multiple sites selected?
         if len(indexlist) == 1:
             sindex = self.sortsites.mapToSource(indexlist[0])
-            data = self.sites.getRow(sindex)
+            data = self.sites.getRow(sindex).copy()
             dlg = DialogAddEditSite(self.units, "Edit", data)
             if dlg.exec_():
-                self.db_updateSite(dlg.data)
-                self.sites.updateRow(sindex, dlg.data)
+                cur = self.db_updateSite(dlg.data)
+                if cur.rowcount > 0:
+                    self.sites.updateRow(sindex, dlg.data)
+                    self.changed = True
+                    self.statusBar().showMessage(
+                        f"Site {dlg.data[sitecol['name']]} updated.", 5000
+                    )
+                else:
+                    self.statusBar().showMessage(
+                        f"Site {dlg.data[sitecol['name']]} already exists.",
+                        5000,
+                    )
         else:
             if self.selectunitdlg.exec_():
                 newunit_id = self.units.row2id[
@@ -1206,10 +1216,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 ]
                 for index in indexlist:
                     sindex = self.sortsites.mapToSource(index)
-                    data = self.sites.getRow(sindex)
+                    data = self.sites.getRow(sindex).copy()
                     data[sitecol["id_units"]] = newunit_id
-                    self.db_updateSite(data)
-                    self.sites.updateRow(sindex, data)
+                    if self.db_updateSite(data):
+                        self.sites.updateRow(sindex, data)
 
     def removeSiteDlg(self):
         """Remove selected data from sites."""
@@ -1346,9 +1356,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def db_updateSite(self, data):
         """Update site data in database."""
-        self.changed = True
-        self.conn.execute(
-            "UPDATE sites SET name=?, x_coord=?, y_coord=?, description=?, id_units=? WHERE id=?",
+        return self.conn.execute(
+            "UPDATE OR IGNORE sites SET name=?, x_coord=?, y_coord=?, description=?, id_units=? WHERE id=?",
             data[1:] + data[:1],
         )
 
@@ -1696,11 +1705,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def editStructureDlg(self, index):
         """Open edit structure dialog."""
-        dlg = DialogAddEditStructure("Edit", self.structures.getRow(index))
+        dlg = DialogAddEditStructure("Edit", self.structures.getRow(index).copy())
         if dlg.exec_():
             cur = self.db_updateStructure(dlg.data)
             if cur.rowcount > 0:
                 self.structures.updateRow(index, dlg.data)
+                self.changed = True
                 self.statusBar().showMessage(
                     f"Structure {dlg.data[structurecol['structure']]} updated.", 5000
                 )
@@ -1805,7 +1815,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def db_updateStructure(self, data):
         """Update structure in database."""
-        self.changed = True
         return self.conn.execute(
             "UPDATE OR IGNORE structype SET structure=?, planar=?, description=?, structcode=?, groupcode=? WHERE id=?",
             (
@@ -1866,11 +1875,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def editUnitDlg(self, index):
         """Open edit unit dialog."""
-        dlg = DialogAddEditUnit("Edit", self.units.getRow(index))
+        dlg = DialogAddEditUnit("Edit", self.units.getRow(index).copy())
         if dlg.exec_():
             cur = self.db_updateUnit(dlg.data)
             if cur.rowcount > 0:
                 self.units.updateRow(index, dlg.data)
+                self.changed = True
                 self.statusBar().showMessage(
                     f"Unit {dlg.data[unitcol['name']]} updated.", 5000
                 )
@@ -1975,7 +1985,6 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def db_updateUnit(self, data):
         """Update unit in database."""
-        self.changed = True
         return self.conn.execute(
             "UPDATE OR IGNORE units SET name=?, description=? WHERE id=?",
             (data[unitcol["name"]], data[unitcol["desc"]], data[unitcol["id"]]),
