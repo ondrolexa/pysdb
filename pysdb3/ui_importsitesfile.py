@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_DialogImportSitesFile(object):
     def setupUi(self, DialogImportSitesFile):
         DialogImportSitesFile.setObjectName("DialogImportSitesFile")
-        DialogImportSitesFile.resize(273, 286)
+        DialogImportSitesFile.resize(273, 354)
         self.verticalLayout = QtWidgets.QVBoxLayout(DialogImportSitesFile)
         self.verticalLayout.setObjectName("verticalLayout")
         self.groupBox = QtWidgets.QGroupBox(DialogImportSitesFile)
@@ -62,6 +62,12 @@ class Ui_DialogImportSitesFile(object):
         self.unitComboFile.setObjectName("unitComboFile")
         self.formLayout_2.setWidget(1, QtWidgets.QFormLayout.FieldRole, self.unitComboFile)
         self.verticalLayout.addWidget(self.groupBox_2)
+        self.updateCoords = QtWidgets.QCheckBox(DialogImportSitesFile)
+        self.updateCoords.setObjectName("updateCoords")
+        self.verticalLayout.addWidget(self.updateCoords)
+        self.updateUnits = QtWidgets.QCheckBox(DialogImportSitesFile)
+        self.updateUnits.setObjectName("updateUnits")
+        self.verticalLayout.addWidget(self.updateUnits)
         self.buttonBox = QtWidgets.QDialogButtonBox(DialogImportSitesFile)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
         self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
@@ -83,3 +89,5 @@ class Ui_DialogImportSitesFile(object):
         self.groupBox_2.setTitle(_translate("DialogImportSitesFile", "Unit"))
         self.radioUnitExisting.setText(_translate("DialogImportSitesFile", "Existing:"))
         self.radioUnitFile.setText(_translate("DialogImportSitesFile", "From file:"))
+        self.updateCoords.setText(_translate("DialogImportSitesFile", "Update coords for existing sites"))
+        self.updateUnits.setText(_translate("DialogImportSitesFile", "Update unit for existing sites"))

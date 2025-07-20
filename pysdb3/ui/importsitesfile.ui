@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>273</width>
-    <height>286</height>
+    <height>354</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -89,6 +89,20 @@
        <widget class="QComboBox" name="unitComboFile"/>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="updateCoords">
+     <property name="text">
+      <string>Update coords for existing sites</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="updateUnits">
+     <property name="text">
+      <string>Update unit for existing sites</string>
+     </property>
     </widget>
    </item>
    <item>

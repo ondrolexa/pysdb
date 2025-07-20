@@ -342,7 +342,11 @@ class MainWindow(QtWidgets.QMainWindow):
                             defunit_id,
                         )
                     )  # id_units
-                self.importSites(sites)
+                self.importSites(
+                    sites,
+                    propsdlg.ui.updateCoords.isChecked(),
+                    propsdlg.ui.updateUnits.isChecked(),
+                )
 
     def importSitesFromCSV(self):
         file, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -378,7 +382,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         x = float(row[propsdlg.ui.lonComboFile.currentIndex()])
                         y = float(row[propsdlg.ui.latComboFile.currentIndex()])
                         sname = str(row[propsdlg.ui.siteComboFile.currentIndex()])
-                        if propsdlg.ui.radioUnitFile.isChecked():
+                        skip_unit = (
+                            propsdlg.ui.updateCoords.isChecked()
+                            and not propsdlg.ui.updateUnits.isChecked()
+                        )
+                        if propsdlg.ui.radioUnitFile.isChecked() and not skip_unit:
                             uname = str(row[propsdlg.ui.unitComboFile.currentIndex()])
                             res = self.conn.execute(
                                 "SELECT id FROM units WHERE name=?",
@@ -400,7 +408,11 @@ class MainWindow(QtWidgets.QMainWindow):
                             )
                         )
                     self.units.updateIndex()
-                    self.importSites(sites)
+                    self.importSites(
+                        sites,
+                        propsdlg.ui.updateCoords.isChecked(),
+                        propsdlg.ui.updateUnits.isChecked(),
+                    )
 
     def importSitesFromGeoJSON(self):
         file, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -434,7 +446,14 @@ class MainWindow(QtWidgets.QMainWindow):
                                 else:
                                     x, y = feature["geometry"]["coordinates"]
                                 sname = fp[propsdlg.ui.siteComboFile.currentText()]
-                                if propsdlg.ui.radioUnitFile.isChecked():
+                                skip_unit = (
+                                    propsdlg.ui.updateCoords.isChecked()
+                                    and not propsdlg.ui.updateUnits.isChecked()
+                                )
+                                if (
+                                    propsdlg.ui.radioUnitFile.isChecked()
+                                    and not skip_unit
+                                ):
                                     uname = fp[propsdlg.ui.unitComboFile.currentText()]
                                     res = self.conn.execute(
                                         "SELECT id FROM units WHERE name=?",
@@ -456,7 +475,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                     )
                                 )
                             self.units.updateIndex()
-                            self.importSites(sites)
+                            self.importSites(
+                                sites,
+                                propsdlg.ui.updateCoords.isChecked(),
+                                propsdlg.ui.updateUnits.isChecked(),
+                            )
                     else:
                         QtWidgets.QMessageBox.warning(
                             self,
@@ -476,13 +499,29 @@ class MainWindow(QtWidgets.QMainWindow):
                     "GeoJSON must contain FeatureCollection",
                 )
 
-    def importSites(self, data):
+    def importSites(self, data, update_coords, update_units):
         added = 0
-        for rec in data:
-            id = self.db_addSite(rec)
-            if id is not None:
-                self.sites.appendRow([id] + list(rec))
-                added += 1
+        modified = 0
+        if update_coords or update_units:
+            for rec in data:
+                id = self.db_getSiteID(rec[0])
+                if id:
+                    sindex = self.sites.index(self.sites.id2row[id], 0)
+                    row = self.sites.getRow(sindex)
+                    if update_coords:
+                        row[sitecol["x"]] = rec[1]
+                        row[sitecol["y"]] = rec[2]
+                    if update_units:
+                        row[sitecol["id_units"]] = rec[4]
+                    self.db_updateSite(row)
+                    self.sites.updateRow(sindex, row)
+                    modified += 1
+        else:
+            for rec in data:
+                id = self.db_addSite(rec)
+                if id is not None:
+                    self.sites.appendRow([id] + list(rec))
+                    added += 1
         if added > 0:
             # self.dbcommit()
             self.changed = True
@@ -498,6 +537,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
             self.ui.sitesView.setFocus()
             self.statusBar().showMessage(f"{added} sites successfully imported.", 5000)
+        elif modified > 0:
+            # self.dbcommit()
+            self.changed = True
+            self.ui.sitesView.setFocus()
+            self.statusBar().showMessage(
+                f"{modified} sites successfully updated.", 5000
+            )
         else:
             self.statusBar().showMessage("All sites already exists.", 5000)
 
@@ -1343,6 +1389,12 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.sortsites.setFilterRegExp("")
                 self.ui.pushSiteFilter.setChecked(False)
                 self.statusBar().showMessage("All sites shown", 5000)
+
+    def db_getSiteID(self, name):
+        """Get site id from database."""
+        res = self.conn.execute("SELECT id FROM sites WHERE name=?", (name,)).fetchall()
+        if res:
+            return res[0][0]
 
     def db_addSite(self, data):
         """Add site data database."""
