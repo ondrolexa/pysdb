@@ -38,7 +38,7 @@ from .dialogs import (
 )
 from .ui_pysdb3 import Ui_MainWindow
 
-__version__ = "3.2.0"
+__version__ = "3.2.1"
 __about__ = """<b>PySDB - structural database manager v.{}</b>
                <p>Copyright (c) 2021-2025 Ondrej Lexa</p>"""
 
@@ -344,8 +344,8 @@ class MainWindow(QtWidgets.QMainWindow):
                     )  # id_units
                 self.importSites(
                     sites,
-                    propsdlg.ui.updateCoords.isChecked(),
-                    propsdlg.ui.updateUnits.isChecked(),
+                    self.selectunitdlg.ui.updateCoords.isChecked(),
+                    self.selectunitdlg.ui.updateUnits.isChecked(),
                 )
 
     def importSitesFromCSV(self):

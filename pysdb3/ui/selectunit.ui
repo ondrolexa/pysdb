@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>207</width>
-    <height>97</height>
+    <width>282</width>
+    <height>147</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,6 +16,20 @@
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QComboBox" name="unitCombo"/>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="updateCoords">
+     <property name="text">
+      <string>Update coords for existing sites</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="updateUnits">
+     <property name="text">
+      <string>Update unit for existing sites</string>
+     </property>
+    </widget>
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
@@ -64,7 +78,4 @@
    </hints>
   </connection>
  </connections>
- <buttongroups>
-  <buttongroup name="buttonGroup"/>
- </buttongroups>
 </ui>

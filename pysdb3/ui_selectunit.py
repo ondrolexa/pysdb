@@ -14,23 +14,37 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_DialogSelectUnit(object):
     def setupUi(self, DialogSelectUnit):
         DialogSelectUnit.setObjectName("DialogSelectUnit")
-        DialogSelectUnit.resize(207, 97)
+        DialogSelectUnit.resize(282, 147)
         self.verticalLayout = QtWidgets.QVBoxLayout(DialogSelectUnit)
         self.verticalLayout.setObjectName("verticalLayout")
         self.unitCombo = QtWidgets.QComboBox(DialogSelectUnit)
         self.unitCombo.setObjectName("unitCombo")
         self.verticalLayout.addWidget(self.unitCombo)
+        self.updateCoords = QtWidgets.QCheckBox(DialogSelectUnit)
+        self.updateCoords.setObjectName("updateCoords")
+        self.verticalLayout.addWidget(self.updateCoords)
+        self.updateUnits = QtWidgets.QCheckBox(DialogSelectUnit)
+        self.updateUnits.setObjectName("updateUnits")
+        self.verticalLayout.addWidget(self.updateUnits)
         self.buttonBox = QtWidgets.QDialogButtonBox(DialogSelectUnit)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
+        self.buttonBox.setStandardButtons(
+            QtWidgets.QDialogButtonBox.Cancel | QtWidgets.QDialogButtonBox.Ok
+        )
         self.buttonBox.setObjectName("buttonBox")
         self.verticalLayout.addWidget(self.buttonBox)
 
         self.retranslateUi(DialogSelectUnit)
-        self.buttonBox.accepted.connect(DialogSelectUnit.accept) # type: ignore
-        self.buttonBox.rejected.connect(DialogSelectUnit.reject) # type: ignore
+        self.buttonBox.accepted.connect(DialogSelectUnit.accept)  # type: ignore
+        self.buttonBox.rejected.connect(DialogSelectUnit.reject)  # type: ignore
         QtCore.QMetaObject.connectSlotsByName(DialogSelectUnit)
 
     def retranslateUi(self, DialogSelectUnit):
         _translate = QtCore.QCoreApplication.translate
         DialogSelectUnit.setWindowTitle(_translate("DialogSelectUnit", "Select unit"))
+        self.updateCoords.setText(
+            _translate("DialogSelectUnit", "Update coords for existing sites")
+        )
+        self.updateUnits.setText(
+            _translate("DialogSelectUnit", "Update unit for existing sites")
+        )
