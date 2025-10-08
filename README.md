@@ -57,14 +57,12 @@ and install with pip:
 > pip install --no-deps pysdb3
 > ```
 
-### Running pywerami
+### Running pysdb
 To start pysdb, simply type:
 
 ```bash
-pysdb
+pysdb3
 ```
-
-Do not forget that virtual environment must be activated prior running `pysdb`.
 
 ## Getting help
 
