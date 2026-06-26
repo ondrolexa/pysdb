@@ -7,8 +7,28 @@ For advanced analyses and visualization, it could be used with [APSG](https://gi
 
 ## How to install
 
-It is strongly suggested to install **pysdb** into separate environment. You can create
-Python virtual environment. For Linux and macOS use:
+It is strongly suggested to install **pysdb** into separate environment.
+
+### Using uv (recommended)
+
+[uv](https://docs.astral.sh/uv/) is a fast Python package and project manager.
+Install it following the [official instructions](https://docs.astral.sh/uv/getting-started/installation/).
+
+Install **pysdb3** as a standalone tool (uv manages an isolated environment automatically):
+
+    uv tool install pysdb3
+
+Then run it from anywhere:
+
+    pysdb3
+
+To upgrade later:
+
+    uv tool upgrade pysdb3
+
+### Using Python virtual environment
+
+You can create a Python virtual environment. For Linux and macOS use:
 
     python -m venv .venv
     source .venv/bin/activate
@@ -29,40 +49,9 @@ and install **pysdb** using pip within the environment:
 
     pip install pysdb3
 
-## I'm using conda or mamba to manage environments
-
-If you have already have conda or mamba installed, you can create environment with:
-
-    conda create -n pysdb python pyqt lxml
-
-or
-
-    mamba create -n pysdb python pyqt lxml
-
-Then activate the new environment:
-
-    conda activate pysdb
-
-or
-
-    mamba activate pysdb
-
-and install with pip:
-
-    pip install pysdb3
-
-> [!NOTE]
-> If you encounter errors during install, try to install without upgrading dependencies:
-> ```
-> pip install --no-deps pysdb3
-> ```
-
-### Running pysdb
 To start pysdb, simply type:
 
-```bash
-pysdb3
-```
+    pysdb3
 
 ## Getting help
 

@@ -1,44 +1,45 @@
-import sys
-import os
 import datetime
+import os
 import sqlite3
+import sys
 from pathlib import Path
-from lxml import etree
 
-from PyQt5 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets, uic
 
-from .models import (
-    SCHEMA,
-    DEFDATA,
-    sitecol,
-    datacol,
-    structurecol,
-    unitcol,
-    tagcol,
-    SiteModel,
-    DataModel,
-    StructureModel,
-    UnitModel,
-    TagModel,
-)
+from . import pysdb3_rc  # noqa: F401
 from .dialogs import (
+    DialogAddEditData,
+    DialogAddEditSite,
+    DialogAddEditStructure,
+    DialogAddEditTag,
+    DialogAddEditUnit,
+    DialogDataFilter,
     DialogImportSetting,
+    DialogMultiEditData,
+    DialogSaveDiscard,
     DialogSDBInfo,
     DialogSDBReport,
-    DialogSiteFilter,
-    DialogDataFilter,
     DialogSelectUnit,
-    DialogAddEditSite,
-    DialogAddEditData,
-    DialogMultiEditData,
-    DialogAddEditStructure,
-    DialogSaveDiscard,
-    DialogAddEditUnit,
-    DialogAddEditTag,
+    DialogSiteFilter,
 )
-from .ui_pysdb3 import Ui_MainWindow
+from .importer import parse_csv, parse_geojson, parse_gpx
+from .models import (
+    DEFDATA,
+    SCHEMA,
+    DataModel,
+    NaturalSortProxyModel,
+    SiteModel,
+    StructureModel,
+    TagModel,
+    UnitModel,
+    datacol,
+    sitecol,
+    structurecol,
+    tagcol,
+    unitcol,
+)
 
-__version__ = "3.2.1"
+__version__ = "3.3.0"
 __about__ = """<b>PySDB - structural database manager v.{}</b>
                <p>Copyright (c) 2021-2025 Ondrej Lexa</p>"""
 
@@ -49,105 +50,94 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
 
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
-        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        uic.loadUi(Path(__file__).parent / "ui" / "pysdb3.ui", self)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose)
 
         # connect actions
-        self.ui.actionAbout.triggered.connect(self.about)
-        self.ui.actionOpen.triggered.connect(self.openFileSDB)
-        self.ui.actionNew.triggered.connect(self.newFileSDB)
-        self.ui.actionInformation.triggered.connect(
+        self.actionAbout.triggered.connect(self.about)
+        self.actionOpen.triggered.connect(self.openFileSDB)
+        self.actionNew.triggered.connect(self.newFileSDB)
+        self.actionInformation.triggered.connect(
             lambda: self.check_action(self.infoSDB)
         )
-        self.ui.actionSave.triggered.connect(
-            lambda: self.check_action(self.saveFileSDB)
-        )
-        self.ui.actionSave_as.triggered.connect(
-            lambda: self.check_action(self.saveAsSDB)
-        )
-        self.ui.actionQuit.triggered.connect(self.close)
-        self.ui.actionFrom_GPX.triggered.connect(
+        self.actionSave.triggered.connect(lambda: self.check_action(self.saveFileSDB))
+        self.actionSave_as.triggered.connect(lambda: self.check_action(self.saveAsSDB))
+        self.actionQuit.triggered.connect(self.close)
+        self.actionFrom_GPX.triggered.connect(
             lambda: self.check_action(self.importSitesFromGPX)
         )
-        self.ui.actionFrom_GeoJSON.triggered.connect(
+        self.actionFrom_GeoJSON.triggered.connect(
             lambda: self.check_action(self.importSitesFromGeoJSON)
         )
-        self.ui.actionFrom_CSV.triggered.connect(
+        self.actionFrom_CSV.triggered.connect(
             lambda: self.check_action(self.importSitesFromCSV)
         )
-        self.ui.actionCompact_database.triggered.connect(
+        self.actionCompact_database.triggered.connect(
             lambda: self.check_action(self.compactDatabase)
         )
         # siteview
-        self.ui.pushSiteAdd.clicked.connect(lambda: self.check_action(self.addSiteDlg))
-        self.ui.pushSiteEdit.clicked.connect(
-            lambda: self.check_action(self.editSiteDlg)
-        )
-        self.ui.pushSiteRemove.clicked.connect(
+        self.pushSiteAdd.clicked.connect(lambda: self.check_action(self.addSiteDlg))
+        self.pushSiteEdit.clicked.connect(lambda: self.check_action(self.editSiteDlg))
+        self.pushSiteRemove.clicked.connect(
             lambda: self.check_action(self.removeSiteDlg)
         )
-        self.ui.pushSiteFilter.clicked.connect(
+        self.pushSiteFilter.clicked.connect(
             lambda: self.check_action(self.filterSiteDlg)
         )
-        self.ui.sitesView.doubleClicked.connect(self.editSiteDlg)
+        self.sitesView.doubleClicked.connect(self.editSiteDlg)
         # dataview
-        self.ui.pushDataAdd.clicked.connect(lambda: self.check_action(self.addDataDlg))
-        self.ui.pushDataEdit.clicked.connect(
-            lambda: self.check_action(self.editDataDlg)
-        )
-        self.ui.pushDataRemove.clicked.connect(
+        self.pushDataAdd.clicked.connect(lambda: self.check_action(self.addDataDlg))
+        self.pushDataEdit.clicked.connect(lambda: self.check_action(self.editDataDlg))
+        self.pushDataRemove.clicked.connect(
             lambda: self.check_action(self.removeDataDlg)
         )
-        self.ui.pushDataFilter.clicked.connect(
+        self.pushDataFilter.clicked.connect(
             lambda: self.check_action(self.filterDataDlg)
         )
-        self.ui.dataView.doubleClicked.connect(self.editDataDlg)
+        self.dataView.doubleClicked.connect(self.editDataDlg)
         # structureview
-        self.ui.pushStructuresAdd.clicked.connect(
+        self.pushStructuresAdd.clicked.connect(
             lambda: self.check_action(self.addStructureDlg)
         )
-        self.ui.pushStructuresRemove.clicked.connect(
+        self.pushStructuresRemove.clicked.connect(
             lambda: self.check_action(self.removeStructureDlg)
         )
-        self.ui.pushStructuresUp.clicked.connect(
+        self.pushStructuresUp.clicked.connect(
             lambda: self.check_action(self.moveStructureUp)
         )
-        self.ui.pushStructuresDown.clicked.connect(
+        self.pushStructuresDown.clicked.connect(
             lambda: self.check_action(self.moveStructureDown)
         )
-        self.ui.structuresView.doubleClicked.connect(self.editStructureDlg)
+        self.structuresView.doubleClicked.connect(self.editStructureDlg)
         # unitview
-        self.ui.pushUnitsAdd.clicked.connect(lambda: self.check_action(self.addUnitDlg))
-        self.ui.pushUnitsRemove.clicked.connect(
+        self.pushUnitsAdd.clicked.connect(lambda: self.check_action(self.addUnitDlg))
+        self.pushUnitsRemove.clicked.connect(
             lambda: self.check_action(self.removeUnitDlg)
         )
-        self.ui.pushUnitsUp.clicked.connect(lambda: self.check_action(self.moveUnitUp))
-        self.ui.pushUnitsDown.clicked.connect(
-            lambda: self.check_action(self.moveUnitDown)
-        )
-        self.ui.unitsView.doubleClicked.connect(self.editUnitDlg)
+        self.pushUnitsUp.clicked.connect(lambda: self.check_action(self.moveUnitUp))
+        self.pushUnitsDown.clicked.connect(lambda: self.check_action(self.moveUnitDown))
+        self.unitsView.doubleClicked.connect(self.editUnitDlg)
         # tagview
-        self.ui.pushTagsAdd.clicked.connect(lambda: self.check_action(self.addTagDlg))
-        self.ui.pushTagsRemove.clicked.connect(
+        self.pushTagsAdd.clicked.connect(lambda: self.check_action(self.addTagDlg))
+        self.pushTagsRemove.clicked.connect(
             lambda: self.check_action(self.removeTagDlg)
         )
-        self.ui.pushTagsUp.clicked.connect(lambda: self.check_action(self.moveTagUp))
-        self.ui.pushTagsDown.clicked.connect(
-            lambda: self.check_action(self.moveTagDown)
-        )
-        self.ui.tagsView.doubleClicked.connect(self.editTagDlg)
+        self.pushTagsUp.clicked.connect(lambda: self.check_action(self.moveTagUp))
+        self.pushTagsDown.clicked.connect(lambda: self.check_action(self.moveTagDown))
+        self.tagsView.doubleClicked.connect(self.editTagDlg)
         # docks
-        self.ui.menuView.addAction(self.ui.dockUnits.toggleViewAction())
-        self.ui.menuView.addAction(self.ui.dockStructures.toggleViewAction())
-        self.ui.menuView.addAction(self.ui.dockTags.toggleViewAction())
-        self.ui.menuView.addAction(self.ui.toolBar.toggleViewAction())
+        self.menuView.addAction(self.dockUnits.toggleViewAction())
+        self.menuView.addAction(self.dockStructures.toggleViewAction())
+        self.menuView.addAction(self.dockTags.toggleViewAction())
+        self.menuView.addAction(self.toolBar.toggleViewAction())
 
         self.connected = False
         self.changed = False
 
         # own sorting tracking
         self.sortorder = 0
+        # header sort signal is wired once; the header persists across file open/close
+        self.sitesView.horizontalHeader().sectionClicked.connect(self.siteSorting)
 
         # load and apply settings
         self.app_settings()
@@ -192,9 +182,9 @@ class MainWindow(QtWidgets.QMainWindow):
             settings.endArray()
 
     def populate_recent(self):
-        self.ui.menuRecent_databases.clear()
+        self.menuRecent_databases.clear()
         for p in self.recent:
-            self.ui.menuRecent_databases.addAction(
+            self.menuRecent_databases.addAction(
                 p.name, lambda p=p: self.openFileSDB(False, p)
             )
 
@@ -209,10 +199,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     self,
                     "Question",
                     "Are you sure you want to exit the program and lost all changes?",
-                    QtWidgets.QMessageBox.Yes,
-                    QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.StandardButton.Yes,
+                    QtWidgets.QMessageBox.StandardButton.No,
                 )
-                == QtWidgets.QMessageBox.Yes
+                == QtWidgets.QMessageBox.StandardButton.Yes
             ):
                 if self.connected:
                     self.conn.rollback()
@@ -269,10 +259,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         self,
                         "Question",
                         "Do you want to save all changes?",
-                        QtWidgets.QMessageBox.Yes,
-                        QtWidgets.QMessageBox.No,
+                        QtWidgets.QMessageBox.StandardButton.Yes,
+                        QtWidgets.QMessageBox.StandardButton.No,
                     )
-                    == QtWidgets.QMessageBox.Yes
+                    == QtWidgets.QMessageBox.StandardButton.Yes
                 ):
                     self.dbcommit()
                 else:
@@ -288,8 +278,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.conn = sqlite3.connect(p)
             self.conn.text_factory = str
             # Create schema of database
-            for sql in SCHEMA.splitlines():
-                self.conn.execute(sql)
+            self.conn.executescript(SCHEMA)
             # Insert metadata
             self.conn.execute(
                 "INSERT INTO meta (name,value) VALUES (?,?)", ("version", __version__)
@@ -324,28 +313,16 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         fname = Path(file)
         if fname.is_file():
-            NSMAP = {"gpx": "http://www.topografix.com/GPX/1/1"}
-            tree = etree.parse(str(fname))
-            wpts = tree.findall("gpx:wpt", namespaces=NSMAP)
-            sites = []
-            if self.selectunitdlg.exec_():
+            wpts = parse_gpx(fname)
+            if self.selectunitdlg.exec():
                 defunit_id = self.units.row2id[
-                    self.selectunitdlg.ui.unitCombo.currentIndex()
+                    self.selectunitdlg.unitCombo.currentIndex()
                 ]
-                for elem in wpts:
-                    sites.append(
-                        (
-                            elem.find("gpx:name", namespaces=NSMAP).text,  # name
-                            float(elem.attrib["lon"]),  # x_coord
-                            float(elem.attrib["lat"]),  # y_coord
-                            "",  # description
-                            defunit_id,
-                        )
-                    )  # id_units
+                sites = [(name, lon, lat, "", defunit_id) for name, lon, lat in wpts]
                 self.importSites(
                     sites,
-                    self.selectunitdlg.ui.updateCoords.isChecked(),
-                    self.selectunitdlg.ui.updateUnits.isChecked(),
+                    self.selectunitdlg.updateCoords.isChecked(),
+                    self.selectunitdlg.updateUnits.isChecked(),
                 )
 
     def importSitesFromCSV(self):
@@ -357,62 +334,58 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         fname = Path(file)
         if fname.is_file():
-            import csv
-
-            with fname.open() as src:
-                sample = src.read(1024)
-                dialect = csv.Sniffer().sniff(sample)
-                has_header = csv.Sniffer().has_header(sample)
-                src.seek(0)
-                # Create a new reader object using the CSV dialect
-                data = list(csv.reader(src, dialect=dialect))
-                if has_header:
-                    columns = data[0]
-                    data = data[1:]
-                else:
-                    columns = [f"Col {n + 1}" for n in range(len(data[0]))]
-                sites = []
-                propsdlg = DialogImportSetting(self.units, columns, geom=True)
-                if propsdlg.exec_():
-                    if propsdlg.ui.radioUnitExisting.isChecked():
-                        unit_id = self.units.row2id[
-                            propsdlg.ui.unitCombo.currentIndex()
-                        ]
-                    for row in data:
-                        x = float(row[propsdlg.ui.lonComboFile.currentIndex()])
-                        y = float(row[propsdlg.ui.latComboFile.currentIndex()])
-                        sname = str(row[propsdlg.ui.siteComboFile.currentIndex()])
-                        skip_unit = (
-                            propsdlg.ui.updateCoords.isChecked()
-                            and not propsdlg.ui.updateUnits.isChecked()
-                        )
-                        if propsdlg.ui.radioUnitFile.isChecked() and not skip_unit:
-                            uname = str(row[propsdlg.ui.unitComboFile.currentIndex()])
-                            res = self.conn.execute(
-                                "SELECT id FROM units WHERE name=?",
-                                (uname,),
-                            ).fetchall()
-                            if res:
-                                unit_id = res[0][0]
-                            else:
-                                cur = self.db_addUnit([-1, uname, ""])
-                                unit_id = cur.lastrowid
-                                self.units.appendRow([unit_id, uname, ""])
-                        sites.append(
-                            (
-                                sname,  # name
-                                x,  # x_coord
-                                y,  # y_coord
-                                "",  # description
-                                unit_id,  # id_units
-                            )
-                        )
-                    self.units.updateIndex()
-                    self.importSites(
-                        sites,
-                        propsdlg.ui.updateCoords.isChecked(),
-                        propsdlg.ui.updateUnits.isChecked(),
+            columns, data = parse_csv(fname)
+            sites = []
+            propsdlg = DialogImportSetting(self.units, columns, geom=True)
+            if propsdlg.exec():
+                if propsdlg.radioUnitExisting.isChecked():
+                    unit_id = self.units.row2id[propsdlg.unitCombo.currentIndex()]
+                skipped = 0
+                for row in data:
+                    try:
+                        x = float(row[propsdlg.lonComboFile.currentIndex()])
+                        y = float(row[propsdlg.latComboFile.currentIndex()])
+                    except (ValueError, IndexError):
+                        skipped += 1
+                        continue
+                    sname = str(row[propsdlg.siteComboFile.currentIndex()])
+                    skip_unit = (
+                        propsdlg.updateCoords.isChecked()
+                        and not propsdlg.updateUnits.isChecked()
                     )
+                    if propsdlg.radioUnitFile.isChecked() and not skip_unit:
+                        uname = str(row[propsdlg.unitComboFile.currentIndex()])
+                        res = self.conn.execute(
+                            "SELECT id FROM units WHERE name=?",
+                            (uname,),
+                        ).fetchall()
+                        if res:
+                            unit_id = res[0][0]
+                        else:
+                            cur = self.db_addUnit([-1, uname, ""])
+                            unit_id = cur.lastrowid
+                            self.units.appendRow([unit_id, uname, ""])
+                    sites.append(
+                        (
+                            sname,  # name
+                            x,  # x_coord
+                            y,  # y_coord
+                            "",  # description
+                            unit_id,  # id_units
+                        )
+                    )
+                if skipped:
+                    QtWidgets.QMessageBox.warning(
+                        self,
+                        "Import warning",
+                        f"{skipped} row(s) skipped due to invalid coordinate values.",
+                    )
+                self.units.updateIndex()
+                self.importSites(
+                    sites,
+                    propsdlg.updateCoords.isChecked(),
+                    propsdlg.updateUnits.isChecked(),
+                )
 
     def importSitesFromGeoJSON(self):
         file, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -423,80 +396,48 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         fname = Path(file)
         if fname.is_file():
-            import json
-
-            with fname.open() as src:
-                data = json.load(src)
-
-            if data["type"] == "FeatureCollection":
-                if len(data["features"]) > 0:
-                    if data["features"][0]["geometry"]["type"] == "Point":
-                        props = list(data["features"][0]["properties"].keys())
-                        sites = []
-                        propsdlg = DialogImportSetting(self.units, props, geom=False)
-                        if propsdlg.exec_():
-                            if propsdlg.ui.radioUnitExisting.isChecked():
-                                unit_id = self.units.row2id[
-                                    propsdlg.ui.unitCombo.currentIndex()
-                                ]
-                            for feature in data["features"]:
-                                fp = feature["properties"]
-                                if len(feature["geometry"]["coordinates"]) > 2:
-                                    x, y, _ = feature["geometry"]["coordinates"]
-                                else:
-                                    x, y = feature["geometry"]["coordinates"]
-                                sname = fp[propsdlg.ui.siteComboFile.currentText()]
-                                skip_unit = (
-                                    propsdlg.ui.updateCoords.isChecked()
-                                    and not propsdlg.ui.updateUnits.isChecked()
-                                )
-                                if (
-                                    propsdlg.ui.radioUnitFile.isChecked()
-                                    and not skip_unit
-                                ):
-                                    uname = fp[propsdlg.ui.unitComboFile.currentText()]
-                                    res = self.conn.execute(
-                                        "SELECT id FROM units WHERE name=?",
-                                        (uname,),
-                                    ).fetchall()
-                                    if res:
-                                        unit_id = res[0][0]
-                                    else:
-                                        cur = self.db_addUnit([-1, uname, ""])
-                                        unit_id = cur.lastrowid
-                                        self.units.appendRow([unit_id, uname, ""])
-                                sites.append(
-                                    (
-                                        sname,  # name
-                                        x,  # x_coord
-                                        y,  # y_coord
-                                        "",  # description
-                                        unit_id,  # id_units
-                                    )
-                                )
-                            self.units.updateIndex()
-                            self.importSites(
-                                sites,
-                                propsdlg.ui.updateCoords.isChecked(),
-                                propsdlg.ui.updateUnits.isChecked(),
-                            )
-                    else:
-                        QtWidgets.QMessageBox.warning(
-                            self,
-                            "GeoJSON error",
-                            "Features must be points",
-                        )
-                else:
-                    QtWidgets.QMessageBox.warning(
-                        self,
-                        "GeoJSON error",
-                        "There are no features in file",
+            try:
+                props, features = parse_geojson(fname)
+            except ValueError as e:
+                QtWidgets.QMessageBox.warning(self, "GeoJSON error", str(e))
+                return
+            sites = []
+            propsdlg = DialogImportSetting(self.units, props, geom=False)
+            if propsdlg.exec():
+                if propsdlg.radioUnitExisting.isChecked():
+                    unit_id = self.units.row2id[propsdlg.unitCombo.currentIndex()]
+                for fp, (x, y) in features:
+                    sname = fp[propsdlg.siteComboFile.currentText()]
+                    skip_unit = (
+                        propsdlg.updateCoords.isChecked()
+                        and not propsdlg.updateUnits.isChecked()
                     )
-            else:
-                QtWidgets.QMessageBox.warning(
-                    self,
-                    "GeoJSON error",
-                    "GeoJSON must contain FeatureCollection",
+                    if propsdlg.radioUnitFile.isChecked() and not skip_unit:
+                        uname = fp[propsdlg.unitComboFile.currentText()]
+                        res = self.conn.execute(
+                            "SELECT id FROM units WHERE name=?",
+                            (uname,),
+                        ).fetchall()
+                        if res:
+                            unit_id = res[0][0]
+                        else:
+                            cur = self.db_addUnit([-1, uname, ""])
+                            unit_id = cur.lastrowid
+                            self.units.appendRow([unit_id, uname, ""])
+                    sites.append(
+                        (
+                            sname,  # name
+                            x,  # x_coord
+                            y,  # y_coord
+                            "",  # description
+                            unit_id,  # id_units
+                        )
+                    )
+                self.units.updateIndex()
+                self.importSites(
+                    sites,
+                    propsdlg.updateCoords.isChecked(),
+                    propsdlg.updateUnits.isChecked(),
                 )
 
     def importSites(self, data, update_coords, update_units):
@@ -531,16 +472,18 @@ class MainWindow(QtWidgets.QMainWindow):
             )
             self.siteSelection.setCurrentIndex(
                 index,
-                QtCore.QItemSelectionModel.ClearAndSelect
-                | QtCore.QItemSelectionModel.Rows,
+                QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+                | QtCore.QItemSelectionModel.SelectionFlag.Rows,
             )
-            self.ui.sitesView.scrollTo(index, QtWidgets.QAbstractItemView.EnsureVisible)
-            self.ui.sitesView.setFocus()
+            self.sitesView.scrollTo(
+                index, QtWidgets.QAbstractItemView.ScrollHint.EnsureVisible
+            )
+            self.sitesView.setFocus()
             self.statusBar().showMessage(f"{added} sites successfully imported.", 5000)
         elif modified > 0:
             # self.dbcommit()
             self.changed = True
-            self.ui.sitesView.setFocus()
+            self.sitesView.setFocus()
             self.statusBar().showMessage(
                 f"{modified} sites successfully updated.", 5000
             )
@@ -554,10 +497,10 @@ class MainWindow(QtWidgets.QMainWindow):
                     self,
                     "Question",
                     "Do you want to save all changes before comapction?",
-                    QtWidgets.QMessageBox.Yes,
-                    QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.StandardButton.Yes,
+                    QtWidgets.QMessageBox.StandardButton.No,
                 )
-                == QtWidgets.QMessageBox.Yes
+                == QtWidgets.QMessageBox.StandardButton.Yes
             ):
                 self.dbcommit()
             else:
@@ -580,7 +523,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 None,
                 "Compacting database",
                 "Error during compacting: {}".format(sys.exc_info()[1]),
-                QtWidgets.QMessageBox.Ok,
+                QtWidgets.QMessageBox.StandardButton.Ok,
             )
         else:
             if unused_units > 0 or unused_structypes > 0:
@@ -591,10 +534,10 @@ class MainWindow(QtWidgets.QMainWindow):
                         "Do you want to delete {} unused units and {} unsused structure types?".format(
                             unused_units, unused_structypes
                         ),
-                        QtWidgets.QMessageBox.Yes,
-                        QtWidgets.QMessageBox.No,
+                        QtWidgets.QMessageBox.StandardButton.Yes,
+                        QtWidgets.QMessageBox.StandardButton.No,
                     )
-                    == QtWidgets.QMessageBox.Yes
+                    == QtWidgets.QMessageBox.StandardButton.Yes
                 ):
                     self.dbcommit()
                     self.conn.close()
@@ -602,158 +545,122 @@ class MainWindow(QtWidgets.QMainWindow):
                 else:
                     self.conn.rollback()
 
+    def _db_count(self, sql):
+        """Run a SELECT COUNT query, returning (count, error_str) where one is None."""
+        try:
+            return len(self.conn.execute(sql).fetchall()), None
+        except Exception as e:
+            return None, str(e)
+
+    def _db_meta(self, name):
+        """Fetch all rows from the meta table for a given key, returning (rows, error_str)."""
+        try:
+            return (
+                self.conn.execute(
+                    "SELECT value FROM meta WHERE name=?", (name,)
+                ).fetchall(),
+                None,
+            )
+        except Exception as e:
+            return [], str(e)
+
     def infoSDB(self):
         """Show database info and diagnostics"""
         bline = "-------------------------\n"
-        info = "Database file: {}\n".format(self.recent[0])
+        info = f"Database file: {self.recent[0]}\n{bline}"
+
+        for label, sql in [
+            ("Number of sites", "SELECT id FROM sites"),
+            ("Number of units", "SELECT id FROM units"),
+            ("Number of measurements", "SELECT id FROM structdata"),
+        ]:
+            n, err = self._db_count(sql)
+            info += f"Error: {err}\n" if err else f"{label}: {n}\n"
+
         info += bline
         try:
-            nsites = len(self.conn.execute("SELECT id FROM sites").fetchall())
-        except Exception:
-            info += "Error during SELECT id FROM sites: {}\n".format(sys.exc_info()[1])
+            ntype = [
+                (
+                    row[1],
+                    len(
+                        self.conn.execute(
+                            "SELECT id FROM sites WHERE id_units=?", (row[0],)
+                        ).fetchall()
+                    ),
+                )
+                for row in self.conn.execute("SELECT id,name FROM units ORDER BY pos")
+            ]
+        except Exception as e:
+            info += f"Error during counting units: {e}\n"
         else:
-            info += "Number of sites: {}\n".format(nsites)
-        try:
-            nunits = len(self.conn.execute("SELECT id FROM units").fetchall())
-        except Exception:
-            info += "Error during SELECT id FROM units: {}\n".format(sys.exc_info()[1])
-        else:
-            info += "Number of units: {}\n".format(nunits)
-        try:
-            ndata = len(self.conn.execute("SELECT id FROM structdata").fetchall())
-        except Exception:
-            info += "Error during SELECT id FROM structdata: {}\n".format(
-                sys.exc_info()[1]
-            )
-        else:
-            info += "Number of measurements: {}\n".format(ndata)
+            for name, count in ntype:
+                info += f"Unit {name}: {count} sites\n"
+
         info += bline
         try:
-            ntype = []
-            for row in self.conn.execute("SELECT id,name FROM units ORDER BY pos"):
-                ntype.append(
-                    (
-                        row[1],
-                        len(
-                            self.conn.execute(
-                                "SELECT id FROM sites WHERE id_units=?", (row[0],)
-                            ).fetchall()
-                        ),
-                    )
+            ntype = [
+                (
+                    row[1],
+                    len(
+                        self.conn.execute(
+                            "SELECT id FROM structdata WHERE id_structype=?", (row[0],)
+                        ).fetchall()
+                    ),
                 )
-        except Exception:
-            info += "Error during counting units: {}\n".format(sys.exc_info()[1])
+                for row in self.conn.execute(
+                    "SELECT id,structure FROM structype ORDER BY pos"
+                )
+            ]
+        except Exception as e:
+            info += f"Error during counting structdata: {e}\n"
         else:
-            for row in ntype:
-                info += "Unit {}: {} sites\n".format(*row)
+            for name, count in ntype:
+                info += f"Structure type {name}: {count} measurements\n"
+
         info += bline
         try:
-            ntype = []
-            for row in self.conn.execute(
-                "SELECT id,structure FROM structype ORDER BY pos"
-            ):
-                ntype.append(
-                    (
-                        row[1],
-                        len(
-                            self.conn.execute(
-                                "SELECT id FROM structdata WHERE id_structype=?",
-                                (row[0],),
-                            ).fetchall()
-                        ),
-                    )
+            ntags = [
+                (
+                    row[1],
+                    len(
+                        self.conn.execute(
+                            "SELECT id FROM tagged WHERE id_tags=?", (row[0],)
+                        ).fetchall()
+                    ),
                 )
-        except Exception:
-            info += "Error during counting structdata: {}\n".format(sys.exc_info()[1])
+                for row in self.conn.execute("SELECT id,name FROM tags ORDER BY pos")
+            ]
+        except Exception as e:
+            info += f"Error during counting tags: {e}\n"
         else:
-            for row in ntype:
-                info += "Structure type {}: {} measurements\n".format(*row)
+            for name, count in ntags:
+                info += f"Tagged with {name}: {count} measurements\n"
+
         info += bline
-        try:
-            ntags = []
-            for row in self.conn.execute("SELECT id,name FROM tags ORDER BY pos"):
-                ntags.append(
-                    (
-                        row[1],
-                        len(
-                            self.conn.execute(
-                                "SELECT id FROM tagged WHERE id_tags=?", (row[0],)
-                            ).fetchall()
-                        ),
-                    )
-                )
-        except Exception:
-            info += "Error during counting structdata: {}\n".format(sys.exc_info()[1])
-        else:
-            for row in ntags:
-                info += "Tagged with {}: {} measurements\n".format(*row)
-        info += bline
-        try:
-            res = self.conn.execute(
-                "SELECT value FROM meta WHERE name='version'"
-            ).fetchall()
-        except Exception:
-            info += (
-                'Error during SELECT value FROM meta WHERE name="version": {}\n'.format(
-                    sys.exc_info()[1]
-                )
-            )
-        else:
-            info += "Saved by version: {}\n".format(res[0][0])
-            if len(res) > 1:
-                info += "Error: More than one 'version' metavalues.\n"
-        try:
-            res = self.conn.execute(
-                "SELECT value FROM meta WHERE name='created'"
-            ).fetchall()
-        except Exception:
-            info += 'SELECT value FROM meta WHERE name="created": {}\n'.format(
-                sys.exc_info()[1]
-            )
-        else:
-            info += "Created: {}\n".format(res[0][0])
-            if len(res) > 1:
-                info += "Error: More than one 'created' metavalues.\n"
-        try:
-            res = self.conn.execute(
-                "SELECT value FROM meta WHERE name='updated'"
-            ).fetchall()
-        except Exception:
-            info += (
-                'Error during SELECT value FROM meta WHERE name="updated": {}\n'.format(
-                    sys.exc_info()[1]
-                )
-            )
-        else:
-            info += "Last updated: {}\n".format(res[0][0])
-            if len(res) > 1:
-                info += "Error: More than one 'updated' metavalues.\n"
-        try:
-            res = self.conn.execute(
-                "SELECT value FROM meta WHERE name='accessed'"
-            ).fetchall()
-        except Exception:
-            info += 'Error during SELECT value FROM meta WHERE name="accessed": {}\n'.format(
-                sys.exc_info()[1]
-            )
-        else:
-            info += "Last accessed: {}".format(res[0][0])
-            if len(res) > 1:
-                info += "Error: More than one 'accessed' metavalues."
-        try:
-            res = self.conn.execute(
-                "SELECT value FROM meta WHERE name='crs'"
-            ).fetchall()
-        except Exception:
-            crs = 'Error during SELECT value FROM meta WHERE name="crs": {}\n'.format(
-                sys.exc_info()[1]
-            )
-        else:
+        for label, key in [
+            ("Saved by version", "version"),
+            ("Created", "created"),
+            ("Last updated", "updated"),
+            ("Last accessed", "accessed"),
+        ]:
+            res, err = self._db_meta(key)
+            if err:
+                info += f"Error ({key}): {err}\n"
+            elif res:
+                info += f"{label}: {res[0][0]}\n"
+                if len(res) > 1:
+                    info += f"Error: More than one '{key}' metavalues.\n"
+
+        res, err = self._db_meta("crs")
+        if err:
+            crs = f"Error: {err}"
+        elif res:
             crs = res[0][0]
-            if len(res) > 1:
-                info += "Error: More than one 'crs' metavalues.\n"
+        else:
+            crs = ""
+
         dlg = DialogSDBInfo(info, crs)
-        if dlg.exec_():
+        if dlg.exec():
             if crs != dlg.crs:
                 self.conn.execute(
                     "UPDATE meta SET value=? WHERE name='crs'", (dlg.crs,)
@@ -767,12 +674,124 @@ class MainWindow(QtWidgets.QMainWindow):
                     self,
                     "Question",
                     "Do you want to save all current changes?",
-                    QtWidgets.QMessageBox.Yes,
-                    QtWidgets.QMessageBox.No,
+                    QtWidgets.QMessageBox.StandardButton.Yes,
+                    QtWidgets.QMessageBox.StandardButton.No,
                 )
-                == QtWidgets.QMessageBox.Yes
+                == QtWidgets.QMessageBox.StandardButton.Yes
             ):
                 self.dbcommit()
+
+    def _export_to(self, nconn):
+        """Copy all data from self.conn to nconn with fresh foreign-key mappings.
+
+        Returns a list of error strings for records that could not be copied.
+        """
+        errors = []
+
+        units = {}
+        for row in self.conn.execute("SELECT * FROM units").fetchall():
+            res = nconn.execute(
+                "INSERT OR IGNORE INTO units ('pos','name','description') VALUES (?,?,?)",
+                (int(row[1]), row[2], row[3]),
+            )
+            if res.rowcount > 0:
+                units[int(row[0])] = res.lastrowid
+            else:
+                errors.append(f"Units record: {row}")
+
+        tags = {}
+        for row in self.conn.execute("SELECT * FROM tags").fetchall():
+            res = nconn.execute(
+                "INSERT OR IGNORE INTO tags ('pos','name','description') VALUES (?,?,?)",
+                (int(row[1]), row[2], row[3]),
+            )
+            if res.rowcount > 0:
+                tags[int(row[0])] = res.lastrowid
+            else:
+                errors.append(f"Tags record: {row}")
+
+        structypes = {}
+        for row in self.conn.execute("SELECT * FROM structype").fetchall():
+            res = nconn.execute(
+                "INSERT OR IGNORE INTO structype ('pos','structure','description','structcode','groupcode','planar') VALUES (?,?,?,?,?,?)",
+                (int(row[1]), row[2], row[3], int(row[4]), int(row[5]), int(row[6])),
+            )
+            if res.rowcount > 0:
+                structypes[int(row[0])] = res.lastrowid
+            else:
+                errors.append(f"Structype record: {row}")
+
+        sites = {}
+        for row in self.conn.execute("SELECT * FROM sites").fetchall():
+            if int(row[1]) in units:
+                res = nconn.execute(
+                    "INSERT OR IGNORE INTO sites ('id_units','name','x_coord','y_coord','description') VALUES (?,?,?,?,?)",
+                    (units[int(row[1])], row[2], row[3], row[4], row[5]),
+                )
+                if res.rowcount > 0:
+                    sites[int(row[0])] = res.lastrowid
+                else:
+                    errors.append(f"Sites record: {row}")
+            else:
+                errors.append(f"Sites(unit) record: {row}")
+
+        structdata = {}
+        for row in self.conn.execute("SELECT * FROM structdata").fetchall():
+            if int(row[1]) in sites and int(row[2]) in structypes:
+                res = nconn.execute(
+                    "INSERT OR IGNORE INTO structdata ('id_sites','id_structype','azimuth','inclination','description') VALUES (?,?,?,?,?)",
+                    (
+                        sites[int(row[1])],
+                        structypes[int(row[2])],
+                        float(row[3]),
+                        float(row[4]),
+                        row[5],
+                    ),
+                )
+                if res.rowcount > 0:
+                    structdata[int(row[0])] = res.lastrowid
+                else:
+                    errors.append(f"Structdata insert failed with record: {row}")
+            elif int(row[1]) not in sites:
+                errors.append(
+                    f"Structdata error: Missing site with id: {int(row[1])}. Skipping..."
+                )
+            else:
+                errors.append(
+                    f"Structdata error: Missing structype with id: {int(row[2])}. Skipping..."
+                )
+
+        for row in self.conn.execute("SELECT * FROM tagged").fetchall():
+            if int(row[1]) in tags and int(row[2]) in structdata:
+                nconn.execute(
+                    "INSERT OR IGNORE INTO tagged ('id_tags','id_structdata') VALUES (?,?)",
+                    (tags[int(row[1])], structdata[int(row[2])]),
+                )
+            elif int(row[1]) not in tags:
+                errors.append(
+                    f"Tagged error: Missing tag with id: {int(row[1])}. Skipping..."
+                )
+            else:
+                errors.append(
+                    f"Tagged error: Missing structdata with id: {int(row[2])}. Skipping..."
+                )
+
+        for row in self.conn.execute("SELECT * FROM attach").fetchall():
+            if int(row[1]) in structdata and int(row[2]) in structdata:
+                nconn.execute(
+                    "INSERT OR IGNORE INTO attach ('id_structdata_planar','id_structdata_linear') VALUES (?,?)",
+                    (structdata[int(row[1])], structdata[int(row[2])]),
+                )
+            elif int(row[1]) not in structdata:
+                errors.append(
+                    f"Attach error: Missing planar structdata with id: {int(row[1])}. Skipping..."
+                )
+            else:
+                errors.append(
+                    f"Attach error: Missing linear structdata with id: {int(row[2])}. Skipping..."
+                )
+
+        return errors
 
     def saveAsSDB(self):
         self.saveFileSDB()
@@ -783,141 +802,40 @@ class MainWindow(QtWidgets.QMainWindow):
             p = Path(fname)
             if not p.suffix:
                 p = p.with_suffix(".sdb")
+            if p.resolve() == Path(self.recent[0]).resolve():
+                QtWidgets.QMessageBox.warning(
+                    self,
+                    "Save As error",
+                    "Cannot overwrite the currently open database.\nChoose a different file name.",
+                )
+                return
             nconn = sqlite3.connect(p)
             nconn.text_factory = str
-            # Create schema of database
-            for sql in SCHEMA.splitlines():
-                nconn.execute(sql)
-            # Insert metadata
-            crs = self.conn.execute(
-                "SELECT value FROM meta WHERE name='crs'"
-            ).fetchall()[0][0]
-            created = self.conn.execute(
-                "SELECT value FROM meta WHERE name='created'"
-            ).fetchall()[0][0]
+            nconn.executescript(SCHEMA)
+            crs_rows, _ = self._db_meta("crs")
+            crs = crs_rows[0][0] if crs_rows else ""
+            created_rows, _ = self._db_meta("created")
+            created = created_rows[0][0] if created_rows else None
             if not created:
                 created = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
-            nconn.execute(
-                "INSERT INTO meta (name,value) VALUES (?,?)",
+            now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M")
+            for name, value in [
                 ("version", __version__),
-            )
-            nconn.execute("INSERT INTO meta (name,value) VALUES (?,?)", ("crs", crs))
-            nconn.execute(
-                "INSERT INTO meta (name,value) VALUES (?,?)",
+                ("crs", crs),
                 ("created", created),
-            )
-            nconn.execute(
-                "INSERT INTO meta (name,value) VALUES (?,?)",
-                ("updated", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")),
-            )
-            nconn.execute(
-                "INSERT INTO meta (name,value) VALUES (?,?)",
-                ("accessed", datetime.datetime.now().strftime("%d.%m.%Y %H:%M")),
-            )
-            # read, check translate
-            errors = []
-            units = {}
-            ins = """INSERT OR IGNORE INTO units ('pos','name','description') VALUES (?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM units").fetchall():
-                res = nconn.execute(ins, (int(row[1]), row[2], row[3]))
-                if res.rowcount > 0:
-                    units[int(row[0])] = res.lastrowid
-                else:
-                    errors.append(f"Units record: {row}")
-
-            tags = {}
-            ins = """INSERT OR IGNORE INTO tags ('pos','name','description') VALUES (?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM tags").fetchall():
-                res = nconn.execute(ins, (int(row[1]), row[2], row[3]))
-                if res.rowcount > 0:
-                    tags[int(row[0])] = res.lastrowid
-                else:
-                    errors.append(f"Tags record: {row}")
-
-            structypes = {}
-            ins = """INSERT OR IGNORE INTO structype ('pos','structure','description','structcode','groupcode','planar') VALUES (?,?,?,?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM structype").fetchall():
-                res = nconn.execute(
-                    ins,
-                    (
-                        int(row[1]),
-                        row[2],
-                        row[3],
-                        int(row[4]),
-                        int(row[5]),
-                        int(row[6]),
-                    ),
+                ("updated", now),
+                ("accessed", now),
+            ]:
+                nconn.execute(
+                    "INSERT INTO meta (name,value) VALUES (?,?)", (name, value)
                 )
-                if res.rowcount > 0:
-                    structypes[int(row[0])] = res.lastrowid
-                else:
-                    errors.append(f"Structype record: {row}")
-
-            sites = {}
-            ins = """INSERT OR IGNORE INTO sites ('id_units','name','x_coord','y_coord','description') VALUES (?,?,?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM sites").fetchall():
-                if int(row[1]) in units:
-                    id_unit = units[int(row[1])]
-                    res = nconn.execute(
-                        ins, (id_unit, row[2], float(row[3]), float(row[4]), row[5])
-                    )
-                    if res.rowcount > 0:
-                        sites[int(row[0])] = res.lastrowid
-                    else:
-                        errors.append(f"Sites record: {row}")
-                else:
-                    errors.append(f"Sites(unit) record: {row}")
-
-            structdata = {}
-            ins = """INSERT OR IGNORE INTO structdata ('id_sites','id_structype','azimuth','inclination','description') VALUES (?,?,?,?,?)"""
-            for row in self.conn.execute("SELECT * FROM structdata").fetchall():
-                if int(row[1]) in sites:
-                    id_site = sites[int(row[1])]
-                    if int(row[2]) in structypes:
-                        id_type = structypes[int(row[2])]
-                        res = nconn.execute(
-                            ins,
-                            (id_site, id_type, float(row[3]), float(row[4]), row[5]),
-                        )
-                        if res.rowcount > 0:
-                            structdata[int(row[0])] = res.lastrowid
-                        else:
-                            errors.append(f"Structdata record: {row}")
-                    else:
-                        errors.append(f"Structdata(structype) record: {row}")
-                else:
-                    errors.append(f"Structdata(site) record: {row}")
-
-            ins = """INSERT OR IGNORE INTO tagged ('id_tags','id_structdata') VALUES (?,?)"""
-            for row in self.conn.execute("SELECT * FROM tagged").fetchall():
-                if int(row[1]) in tags:
-                    id_tag = tags[int(row[1])]
-                    if int(row[2]) in structdata:
-                        id_data = structdata[int(row[2])]
-                        nconn.execute(ins, (id_tag, id_data))
-                    else:
-                        errors.append(f"Tagged(tag) record: {row}")
-                else:
-                    errors.append(f"Tagged(strucdata) record: {row}")
-
-            ins = """INSERT OR IGNORE INTO attach ('id_structdata_planar','id_structdata_linear') VALUES (?,?)"""
-            for row in self.conn.execute("SELECT * FROM attach").fetchall():
-                if int(row[1]) in structdata:
-                    id_planar = structdata[int(row[1])]
-                    if int(row[2]) in structdata:
-                        id_linear = structdata[int(row[2])]
-                        nconn.execute(ins, (id_planar, id_linear))
-                    else:
-                        errors.append(f"Attach(strucdata-planar) record: {row}")
-                else:
-                    errors.append(f"Attach(strucdata-linear) record: {row}")
-
+            errors = self._export_to(nconn)
             nconn.commit()
             nconn.close()
             self.openFileSDB(False, p)
             if errors:
                 dlg = DialogSDBReport("\n".join(errors))
-                dlg.exec_()
+                dlg.exec()
 
     def checkDatabase(self):
         """Check and possibly fix database"""
@@ -946,7 +864,8 @@ class MainWindow(QtWidgets.QMainWindow):
         try:
             self.conn.execute(sql)
             self.conn.execute("SELECT * FROM attach LIMIT 1")
-        except Exception:
+        except Exception as e:
+            self._last_schema_error = str(e)
             ok = False
         else:
             # Check for meta table
@@ -1068,13 +987,13 @@ class MainWindow(QtWidgets.QMainWindow):
             self.structures = StructureModel(tlist)
 
             # let's add view of the data source we just created:
-            self.ui.structuresView.setModel(self.structures)
-            self.ui.structuresView.setColumnHidden(structurecol["id"], True)
-            self.ui.structuresView.setColumnHidden(structurecol["scode"], True)
-            self.ui.structuresView.setColumnHidden(structurecol["gcode"], True)
-            self.ui.structuresView.resizeColumnToContents(structurecol["structure"])
-            self.ui.structuresView.resizeColumnToContents(structurecol["planar"])
-            self.structureSelection = self.ui.structuresView.selectionModel()
+            self.structuresView.setModel(self.structures)
+            self.structuresView.setColumnHidden(structurecol["id"], True)
+            self.structuresView.setColumnHidden(structurecol["scode"], True)
+            self.structuresView.setColumnHidden(structurecol["gcode"], True)
+            self.structuresView.resizeColumnToContents(structurecol["structure"])
+            self.structuresView.resizeColumnToContents(structurecol["planar"])
+            self.structureSelection = self.structuresView.selectionModel()
 
             # -----------------------------------
             # read units table
@@ -1088,10 +1007,10 @@ class MainWindow(QtWidgets.QMainWindow):
             self.units = UnitModel(tlist)
 
             # let's add view of the data source we just created:
-            self.ui.unitsView.setModel(self.units)
-            self.ui.unitsView.setColumnHidden(unitcol["id"], True)
-            self.ui.unitsView.resizeColumnToContents(unitcol["name"])
-            self.unitSelection = self.ui.unitsView.selectionModel()
+            self.unitsView.setModel(self.units)
+            self.unitsView.setColumnHidden(unitcol["id"], True)
+            self.unitsView.resizeColumnToContents(unitcol["name"])
+            self.unitSelection = self.unitsView.selectionModel()
 
             # -----------------------------------
             # read tags table
@@ -1103,18 +1022,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 tlist.append(
                     list(row)
                     + [
-                        QtCore.Qt.Unchecked,
+                        QtCore.Qt.CheckState.Unchecked,
                     ]
                 )
 
             self.tags = TagModel(tlist)
 
             # let's add view of the data source we just created:
-            self.ui.tagsView.setModel(self.tags)
-            self.ui.tagsView.setColumnHidden(tagcol["id"], True)
-            self.ui.tagsView.setColumnHidden(tagcol["check"], True)
-            self.ui.tagsView.resizeColumnToContents(tagcol["name"])
-            self.tagSelection = self.ui.tagsView.selectionModel()
+            self.tagsView.setModel(self.tags)
+            self.tagsView.setColumnHidden(tagcol["id"], True)
+            self.tagsView.setColumnHidden(tagcol["check"], True)
+            self.tagsView.resizeColumnToContents(tagcol["name"])
+            self.tagSelection = self.tagsView.selectionModel()
 
             # -----------------------------------
             # read sites table
@@ -1127,34 +1046,33 @@ class MainWindow(QtWidgets.QMainWindow):
 
             self.sites = SiteModel(tlist)
 
-            self.sortsites = QtCore.QSortFilterProxyModel(self)
+            self.sortsites = NaturalSortProxyModel(self)
             self.sortsites.setSourceModel(self.sites)
             self.sortsites.setDynamicSortFilter(True)
 
             # let's add view of the data source we just created:
-            self.ui.sitesView.setModel(self.sortsites)
-            self.ui.sitesView.setSelectionBehavior(
-                QtWidgets.QAbstractItemView.SelectRows
+            self.sitesView.setModel(self.sortsites)
+            self.sitesView.setSelectionBehavior(
+                QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
             )
-            # self.ui.sitesView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-            # self.ui.sitesView.horizontalHeader().setStretchLastSection(True)
-            # self.ui.sitesView.verticalHeader().hide()
-            self.ui.sitesView.setColumnHidden(sitecol["id"], True)
-            self.ui.sitesView.setColumnHidden(sitecol["x"], True)
-            self.ui.sitesView.setColumnHidden(sitecol["y"], True)
-            self.ui.sitesView.setColumnHidden(sitecol["desc"], True)
-            self.ui.sitesView.setColumnHidden(sitecol["id_units"], True)
-            # self.ui.sitesView.verticalHeader().setDefaultSectionSize(22)
-            self.ui.sitesView.setSortingEnabled(True)
-            self.ui.sitesView.sortByColumn(sitecol["name"], QtCore.Qt.AscendingOrder)
+            # self.sitesView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+            # self.sitesView.horizontalHeader().setStretchLastSection(True)
+            # self.sitesView.verticalHeader().hide()
+            self.sitesView.setColumnHidden(sitecol["id"], True)
+            self.sitesView.setColumnHidden(sitecol["x"], True)
+            self.sitesView.setColumnHidden(sitecol["y"], True)
+            self.sitesView.setColumnHidden(sitecol["desc"], True)
+            self.sitesView.setColumnHidden(sitecol["id_units"], True)
+            # self.sitesView.verticalHeader().setDefaultSectionSize(22)
+            self.sitesView.setSortingEnabled(True)
+            self.sitesView.sortByColumn(
+                sitecol["name"], QtCore.Qt.SortOrder.AscendingOrder
+            )
 
             # Connect siteSelection changed signal
-            self.siteSelection = self.ui.sitesView.selectionModel()
+            # (siteSelection is a new object after each setModel call, so no disconnect needed)
+            self.siteSelection = self.sitesView.selectionModel()
             self.siteSelection.selectionChanged.connect(self.siteselChanged)
-            # connect sort signal
-            self.ui.sitesView.horizontalHeader().sectionClicked.connect(
-                self.siteSorting
-            )
 
             # preload dialog
             self.sitefilterdlg = DialogSiteFilter(self.units)
@@ -1166,29 +1084,33 @@ class MainWindow(QtWidgets.QMainWindow):
             # -----------------------------------
             self.siteSelection.setCurrentIndex(
                 self.sites.index(0, sitecol["name"]),
-                QtCore.QItemSelectionModel.ClearAndSelect
-                | QtCore.QItemSelectionModel.Rows,
+                QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+                | QtCore.QItemSelectionModel.SelectionFlag.Rows,
             )
             self.siteselChanged()
-            self.ui.sitesView.setFocus()
+            self.sitesView.setFocus()
 
             self.connected = True
             self.changed = False
             dbversion = self.conn.execute(
                 "SELECT value FROM meta WHERE name='version'"
             ).fetchall()[0][0]
-            if dbversion.split(".")[0] < "3":
+            if int(dbversion.split(".")[0]) < 3:
                 QtWidgets.QMessageBox.warning(
                     self,
                     "Version check",
                     "Your database is created in older version of PySDB.\nConsider database format update.",
                 )
         else:
+            err = getattr(self, "_last_schema_error", "")
+            msg = f"File {dbname} is not valid PySDB database."
+            if err:
+                msg += f"\n\nSchema error: {err}"
             QtWidgets.QMessageBox.critical(
                 None,
                 "PySDB database",
-                "File {} is not valid PySDB database.".format(dbname),
-                QtWidgets.QMessageBox.Ok,
+                msg,
+                QtWidgets.QMessageBox.StandardButton.Ok,
             )
             self.conn.close()
 
@@ -1207,7 +1129,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def addSiteDlg(self):
         """Open site dialog and retrieve data."""
         dlg = DialogAddEditSite(self.units, "Add")
-        if dlg.exec_():
+        if dlg.exec():
             id = self.db_addSite(dlg.data[1:])
             if id is not None:
                 self.sites.appendRow([id] + dlg.data[1:])
@@ -1217,14 +1139,14 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
                 self.siteSelection.setCurrentIndex(
                     index,
-                    QtCore.QItemSelectionModel.ClearAndSelect
-                    | QtCore.QItemSelectionModel.Rows,
+                    QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+                    | QtCore.QItemSelectionModel.SelectionFlag.Rows,
                 )
-                self.ui.sitesView.scrollTo(
-                    index, QtWidgets.QAbstractItemView.EnsureVisible
+                self.sitesView.scrollTo(
+                    index, QtWidgets.QAbstractItemView.ScrollHint.EnsureVisible
                 )
-                # self.ui.sitesView.scrollToBottom()
-                self.ui.sitesView.setFocus()
+                # self.sitesView.scrollToBottom()
+                self.sitesView.setFocus()
             else:
                 self.statusBar().showMessage(
                     f"Site {dlg.data[1]} already exists.", 5000
@@ -1242,7 +1164,7 @@ class MainWindow(QtWidgets.QMainWindow):
             sindex = self.sortsites.mapToSource(indexlist[0])
             data = self.sites.getRow(sindex).copy()
             dlg = DialogAddEditSite(self.units, "Edit", data)
-            if dlg.exec_():
+            if dlg.exec():
                 cur = self.db_updateSite(dlg.data)
                 if cur.rowcount > 0:
                     self.sites.updateRow(sindex, dlg.data)
@@ -1256,9 +1178,9 @@ class MainWindow(QtWidgets.QMainWindow):
                         5000,
                     )
         else:
-            if self.selectunitdlg.exec_():
+            if self.selectunitdlg.exec():
                 newunit_id = self.units.row2id[
-                    self.selectunitdlg.ui.unitCombo.currentIndex()
+                    self.selectunitdlg.unitCombo.currentIndex()
                 ]
                 for index in indexlist:
                     sindex = self.sortsites.mapToSource(index)
@@ -1276,11 +1198,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self,
                 "Warning",
                 warn_msg,
-                QtWidgets.QMessageBox.Yes
-                | QtWidgets.QMessageBox.Save
-                | QtWidgets.QMessageBox.Cancel,
+                QtWidgets.QMessageBox.StandardButton.Yes
+                | QtWidgets.QMessageBox.StandardButton.Save
+                | QtWidgets.QMessageBox.StandardButton.Cancel,
             )
-            if reply == QtWidgets.QMessageBox.Yes:
+            if reply == QtWidgets.QMessageBox.StandardButton.Yes:
                 # remember postion of cursor
                 row = indexlist[0].row()
                 # sites must be deleted from last to first in sitemodel
@@ -1295,14 +1217,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     row = self.sites.rowCount() - 1
                 self.siteSelection.setCurrentIndex(
                     self.sites.index(row, sitecol["name"]),
-                    QtCore.QItemSelectionModel.ClearAndSelect
-                    | QtCore.QItemSelectionModel.Rows,
+                    QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+                    | QtCore.QItemSelectionModel.SelectionFlag.Rows,
                 )
-                self.ui.sitesView.setFocus()
+                self.sitesView.setFocus()
                 self.statusBar().showMessage(
                     f"{len(rows)} sites and {count} data have been deleted.", 5000
                 )
-            if reply == QtWidgets.QMessageBox.Save:
+            if reply == QtWidgets.QMessageBox.StandardButton.Save:
                 allsites = [item[:2] for item in self.sites._items]
                 selsites = [
                     self.sites.getRow(self.sortsites.mapToSource(index))[:2]
@@ -1341,53 +1263,56 @@ class MainWindow(QtWidgets.QMainWindow):
                     )
                     self.siteSelection.setCurrentIndex(
                         index,
-                        QtCore.QItemSelectionModel.ClearAndSelect
-                        | QtCore.QItemSelectionModel.Rows,
+                        QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+                        | QtCore.QItemSelectionModel.SelectionFlag.Rows,
                     )
-                    self.ui.sitesView.scrollTo(
-                        index, QtWidgets.QAbstractItemView.EnsureVisible
+                    self.sitesView.scrollTo(
+                        index, QtWidgets.QAbstractItemView.ScrollHint.EnsureVisible
                     )
-                    self.ui.sitesView.setFocus()
+                    self.sitesView.setFocus()
 
-                    # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.id2row[desid],sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
-                    # self.ui.sitesView.setFocus()
+                    # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.id2row[desid],sitecol['name']), QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect | QtCore.QItemSelectionModel.SelectionFlag.Rows)
+                    # self.sitesView.setFocus()
                     self.statusBar().showMessage(
                         f"{len(rows)} sites and {count} data have been deleted.", 5000
                     )
 
     def filterSiteDlg(self):
         """Filter sites"""
-        self.ui.pushSiteFilter.setChecked(not self.ui.pushSiteFilter.isChecked())
-        if self.sitefilterdlg.exec_():
-            if self.sitefilterdlg.ui.radioUnit.isChecked():
-                self.sortsites.setFilterRegExp(
-                    QtCore.QRegExp(
+        self.pushSiteFilter.setChecked(not self.pushSiteFilter.isChecked())
+        if self.sitefilterdlg.exec():
+            if self.sitefilterdlg.radioUnit.isChecked():
+                self.sortsites.setFilterRegularExpression(
+                    QtCore.QRegularExpression(
                         "^"
                         + str(
                             self.units.row2id[
-                                self.sitefilterdlg.ui.unitCombo.currentIndex()
+                                self.sitefilterdlg.unitCombo.currentIndex()
                             ]
                         )
                         + "$"
                     )
                 )
                 self.sortsites.setFilterKeyColumn(sitecol["id_units"])
-                self.ui.pushSiteFilter.setChecked(True)
-                funame = self.sitefilterdlg.ui.unitCombo.currentText()
+                self.pushSiteFilter.setChecked(True)
+                funame = self.sitefilterdlg.unitCombo.currentText()
                 self.statusBar().showMessage(f"Sites filtered to unit {funame}", 5000)
-            elif self.sitefilterdlg.ui.radioName.isChecked():
-                self.sortsites.setFilterWildcard(
-                    "*" + self.sitefilterdlg.ui.nameEdit.text() + "*"
+            elif self.sitefilterdlg.radioName.isChecked():
+                escaped = QtCore.QRegularExpression.escape(
+                    self.sitefilterdlg.nameEdit.text()
+                )
+                self.sortsites.setFilterRegularExpression(
+                    QtCore.QRegularExpression(".*" + escaped + ".*")
                 )
                 self.sortsites.setFilterKeyColumn(sitecol["name"])
-                self.ui.pushSiteFilter.setChecked(True)
-                fsname = self.sitefilterdlg.ui.nameEdit.text()
+                self.pushSiteFilter.setChecked(True)
+                fsname = self.sitefilterdlg.nameEdit.text()
                 self.statusBar().showMessage(
                     f"Sites filtered to name contains {fsname}", 5000
                 )
             else:
-                self.sortsites.setFilterRegExp("")
-                self.ui.pushSiteFilter.setChecked(False)
+                self.sortsites.setFilterRegularExpression("")
+                self.pushSiteFilter.setChecked(False)
                 self.statusBar().showMessage("All sites shown", 5000)
 
     def db_getSiteID(self, name):
@@ -1428,21 +1353,23 @@ class MainWindow(QtWidgets.QMainWindow):
         return count
 
     def siteselChanged(self, selected=None, deselected=None):
-        # read selected data from structdata table
         tlist = []
         for site in self.siteSelection.selectedRows():
             for row in self.conn.execute(
-                "SELECT structdata.id,structdata.id_sites,structdata.id_structype,azimuth,inclination,structype.structure,structdata.description FROM structdata Inner Join structype ON structype.id = structdata.id_structype WHERE structdata.id_sites=? ORDER BY structdata.id",
+                """SELECT structdata.id, structdata.id_sites, structdata.id_structype,
+                   azimuth, inclination, structype.structure, structdata.description,
+                   GROUP_CONCAT(tags.name) AS tags
+                   FROM structdata
+                   INNER JOIN structype ON structype.id = structdata.id_structype
+                   LEFT JOIN tagged ON tagged.id_structdata = structdata.id
+                   LEFT JOIN tags ON tags.id = tagged.id_tags
+                   WHERE structdata.id_sites=?
+                   GROUP BY structdata.id
+                   ORDER BY structdata.id""",
                 (site.data(),),
             ):
-                tags = []
-                for tag in self.conn.execute(
-                    "SELECT tags.name FROM tagged INNER JOIN tags ON tags.id = tagged.id_tags WHERE tagged.id_structdata = ?",
-                    (row[0],),
-                ):
-                    tags.append(tag[0])
-                nrow = list(row)
-                nrow.append(",".join(tags))
+                nrow = list(row[:7])
+                nrow.append(row[7] or "")
                 tlist.append(nrow)
         # read data
         self.data = DataModel(tlist)
@@ -1450,29 +1377,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.filterdata.setSourceModel(self.data)
 
         # let's add view of the data source we just created:
-        self.ui.dataView.clearSpans()
-        self.ui.dataView.setModel(self.filterdata)
-        self.ui.dataView.setColumnHidden(datacol["id"], True)
-        self.ui.dataView.setColumnHidden(datacol["id_sites"], True)
-        self.ui.dataView.setColumnHidden(datacol["id_struct"], True)
-        self.ui.dataView.setColumnHidden(datacol["desc"], True)
-        self.ui.dataView.resizeColumnToContents(datacol["azi"])
-        self.ui.dataView.resizeColumnToContents(datacol["inc"])
-        self.ui.dataView.resizeColumnToContents(datacol["struct"])
+        self.dataView.clearSpans()
+        self.dataView.setModel(self.filterdata)
+        self.dataView.setColumnHidden(datacol["id"], True)
+        self.dataView.setColumnHidden(datacol["id_sites"], True)
+        self.dataView.setColumnHidden(datacol["id_struct"], True)
+        self.dataView.setColumnHidden(datacol["desc"], True)
+        self.dataView.resizeColumnToContents(datacol["azi"])
+        self.dataView.resizeColumnToContents(datacol["inc"])
+        self.dataView.resizeColumnToContents(datacol["struct"])
 
-        self.dataSelection = self.ui.dataView.selectionModel()
+        self.dataSelection = self.dataView.selectionModel()
         self.dataSelection.selectionChanged.connect(self.dataselChanged)
 
         self.do_filterdata()
         self.show()
 
     def siteSorting(self, logindex):
-        # cycle 4 sort types
+        # cycle 4 sort types: name↑ → name↓ → id↑ → id↓
         self.sortorder = (self.sortorder + 1) % 4
-        if self.sortorder == 2:
-            self.ui.sitesView.sortByColumn(sitecol["id"], QtCore.Qt.AscendingOrder)
-        if self.sortorder == 3:
-            self.ui.sitesView.sortByColumn(sitecol["id"], QtCore.Qt.DescendingOrder)
+        if self.sortorder == 0:
+            self.sitesView.sortByColumn(
+                sitecol["name"], QtCore.Qt.SortOrder.AscendingOrder
+            )
+        elif self.sortorder == 1:
+            self.sitesView.sortByColumn(
+                sitecol["name"], QtCore.Qt.SortOrder.DescendingOrder
+            )
+        elif self.sortorder == 2:
+            self.sitesView.sortByColumn(
+                sitecol["id"], QtCore.Qt.SortOrder.AscendingOrder
+            )
+        elif self.sortorder == 3:
+            self.sitesView.sortByColumn(
+                sitecol["id"], QtCore.Qt.SortOrder.DescendingOrder
+            )
 
     # ----------------------------------------------------------------------
     # DATA VIEW
@@ -1501,14 +1440,14 @@ class MainWindow(QtWidgets.QMainWindow):
             # set dlg data
             dlg.data[datacol["id_sites"]] = indexlist[0].data()
             # set attach combo
-            dlg.ui.attachCombo.setCurrentIndex(-1)
-            if dlg.exec_():
+            dlg.attachCombo.setCurrentIndex(-1)
+            if dlg.exec():
                 # test attachment
                 if (
-                    not self.structures.isplanar(dlg.ui.structureCombo.currentIndex())
-                    and dlg.ui.attachCombo.currentIndex() != -1
+                    not self.structures.isplanar(dlg.structureCombo.currentIndex())
+                    and dlg.attachCombo.currentIndex() != -1
                 ):
-                    attached = attachlist[dlg.ui.attachCombo.currentIndex()][0]
+                    attached = attachlist[dlg.attachCombo.currentIndex()][0]
                 else:
                     attached = None
                 self.db_addData(dlg.data, attached, self.tags.getChecked())
@@ -1516,11 +1455,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 # set focus
                 self.dataSelection.setCurrentIndex(
                     self.data.index(self.data.rowCount() - 1, datacol["azi"]),
-                    QtCore.QItemSelectionModel.ClearAndSelect
-                    | QtCore.QItemSelectionModel.Rows,
+                    QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+                    | QtCore.QItemSelectionModel.SelectionFlag.Rows,
                 )
-                self.ui.dataView.scrollToBottom()
-                self.ui.dataView.setFocus()
+                self.dataView.scrollToBottom()
+                self.dataView.setFocus()
 
     def editDataDlg(self, index=None):
         """Open data dialog to edit data."""
@@ -1560,18 +1499,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 (id,),
             ).fetchall()
             if row == []:
-                dlg.ui.attachCombo.setCurrentIndex(-1)
+                dlg.attachCombo.setCurrentIndex(-1)
             else:
-                dlg.ui.attachCombo.setCurrentIndex(
+                dlg.attachCombo.setCurrentIndex(
                     [a[0] for a in attachlist].index(row[0][0])
                 )
-            if dlg.exec_():
+            if dlg.exec():
                 # test attachment
                 if (
-                    not self.structures.isplanar(dlg.ui.structureCombo.currentIndex())
-                    and dlg.ui.attachCombo.currentIndex() != -1
+                    not self.structures.isplanar(dlg.structureCombo.currentIndex())
+                    and dlg.attachCombo.currentIndex() != -1
                 ):
-                    attached = attachlist[dlg.ui.attachCombo.currentIndex()][0]
+                    attached = attachlist[dlg.attachCombo.currentIndex()][0]
                 else:
                     attached = None
                 self.db_updateData(
@@ -1586,19 +1525,14 @@ class MainWindow(QtWidgets.QMainWindow):
             # if all(types) or not any(types):
             self.tags.cleanState()
             dlg = DialogMultiEditData(self.structures, self.tags)
-            if dlg.exec_():
-                newstruct_id = self.structures.row2id[
-                    dlg.ui.structureCombo.currentIndex()
-                ]
+            if dlg.exec():
+                newstruct_id = self.structures.row2id[dlg.structureCombo.currentIndex()]
                 for index in indexlist:
                     data = self.data.getRow(self.filterdata.mapToSource(index))
                     tagged = None
-                    if (
-                        dlg.ui.radioBoth.isChecked()
-                        or dlg.ui.radioStructure.isChecked()
-                    ):
+                    if dlg.radioBoth.isChecked() or dlg.radioStructure.isChecked():
                         data[datacol["id_struct"]] = newstruct_id
-                    if dlg.ui.radioBoth.isChecked() or dlg.ui.radioTags.isChecked():
+                    if dlg.radioBoth.isChecked() or dlg.radioTags.isChecked():
                         tagged = self.tags.getChecked()
                     self.db_updateData(data, tagged=tagged)
                 self.siteselChanged()
@@ -1614,10 +1548,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 self,
                 "Warning",
                 warn_msg,
-                QtWidgets.QMessageBox.Yes,
-                QtWidgets.QMessageBox.No,
+                QtWidgets.QMessageBox.StandardButton.Yes,
+                QtWidgets.QMessageBox.StandardButton.No,
             )
-            if reply == QtWidgets.QMessageBox.Yes:
+            if reply == QtWidgets.QMessageBox.StandardButton.Yes:
                 # remember postion of cursor
                 row = indexlist[0].row()
                 # sites must be deleted from last to first in sitemodel
@@ -1631,23 +1565,23 @@ class MainWindow(QtWidgets.QMainWindow):
                     row = self.data.rowCount() - 1
                 self.dataSelection.setCurrentIndex(
                     self.data.index(row, datacol["azi"]),
-                    QtCore.QItemSelectionModel.ClearAndSelect
-                    | QtCore.QItemSelectionModel.Rows,
+                    QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect
+                    | QtCore.QItemSelectionModel.SelectionFlag.Rows,
                 )
-                self.ui.dataView.setFocus()
+                self.dataView.setFocus()
 
     def filterDataDlg(self):
         """Filter data"""
-        self.ui.pushDataFilter.setChecked(not self.ui.pushDataFilter.isChecked())
-        if self.datafilterdlg.exec_():
+        self.pushDataFilter.setChecked(not self.pushDataFilter.isChecked())
+        if self.datafilterdlg.exec():
             self.do_filterdata()
-            if self.datafilterdlg.ui.radioStructure.isChecked():
-                stname = self.datafilterdlg.ui.structureCombo.currentText()
+            if self.datafilterdlg.radioStructure.isChecked():
+                stname = self.datafilterdlg.structureCombo.currentText()
                 self.statusBar().showMessage(
                     f"Data filtered to structure {stname}", 5000
                 )
-            elif self.datafilterdlg.ui.radioTag.isChecked():
-                tgname = self.datafilterdlg.ui.nameTag.text()
+            elif self.datafilterdlg.radioTag.isChecked():
+                tgname = self.datafilterdlg.nameTag.text()
                 self.statusBar().showMessage(
                     f"Data filtered to tags contains {tgname}", 5000
                 )
@@ -1655,30 +1589,33 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage("All data shown", 5000)
 
     def do_filterdata(self):
-        if self.datafilterdlg.ui.radioStructure.isChecked():
-            self.filterdata.setFilterRegExp(
-                QtCore.QRegExp(
+        if self.datafilterdlg.radioStructure.isChecked():
+            self.filterdata.setFilterRegularExpression(
+                QtCore.QRegularExpression(
                     "^"
                     + str(
                         self.structures.row2id[
-                            self.datafilterdlg.ui.structureCombo.currentIndex()
+                            self.datafilterdlg.structureCombo.currentIndex()
                         ]
                     )
                     + "$"
                 )
             )
             self.filterdata.setFilterKeyColumn(datacol["id_struct"])
-        elif self.datafilterdlg.ui.radioTag.isChecked():
-            self.filterdata.setFilterWildcard(
-                "*" + self.datafilterdlg.ui.nameTag.text() + "*"
+        elif self.datafilterdlg.radioTag.isChecked():
+            escaped = QtCore.QRegularExpression.escape(
+                self.datafilterdlg.nameTag.text()
+            )
+            self.filterdata.setFilterRegularExpression(
+                QtCore.QRegularExpression(".*" + escaped + ".*")
             )
             self.filterdata.setFilterKeyColumn(datacol["tags"])
         else:
-            self.filterdata.setFilterRegExp("")
-        if self.datafilterdlg.ui.radioNone.isChecked():
-            self.ui.pushDataFilter.setChecked(False)
+            self.filterdata.setFilterRegularExpression("")
+        if self.datafilterdlg.radioNone.isChecked():
+            self.pushDataFilter.setChecked(False)
         else:
-            self.ui.pushDataFilter.setChecked(True)
+            self.pushDataFilter.setChecked(True)
 
     def db_addData(self, data, attached=None, tagged=[]):
         """Add new record to database. attached is id of structure and tagged is list of tag ids."""
@@ -1738,7 +1675,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def addStructureDlg(self):
         """Open add structure dialog."""
         dlg = DialogAddEditStructure("Add")
-        if dlg.exec_():
+        if dlg.exec():
             cur = self.db_addStructure(dlg.data)
             if cur.rowcount > 0:
                 dlg.data[structurecol["id"]] = cur.lastrowid
@@ -1746,19 +1683,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage(
                     f"Structure {dlg.data[structurecol['structure']]} added.", 5000
                 )
-                self.ui.structuresView.scrollToBottom()
+                self.structuresView.scrollToBottom()
             else:
                 self.statusBar().showMessage(
                     f"Structure {dlg.data[structurecol['structure']]} already exists.",
                     5000,
                 )
-            # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
-            self.ui.structuresView.setFocus()
+            # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect | QtCore.QItemSelectionModel.SelectionFlag.Rows)
+            self.structuresView.setFocus()
 
     def editStructureDlg(self, index):
         """Open edit structure dialog."""
         dlg = DialogAddEditStructure("Edit", self.structures.getRow(index).copy())
-        if dlg.exec_():
+        if dlg.exec():
             cur = self.db_updateStructure(dlg.data)
             if cur.rowcount > 0:
                 self.structures.updateRow(index, dlg.data)
@@ -1790,7 +1727,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     f"Do you want to delete structure {todel[structurecol['structure']]} and all related data?",
                     "Assign another structure to data:",
                 )
-                if dlg.exec_():
+                if dlg.exec():
                     if dlg.checked():
                         # assign other structure to data
                         self.conn.execute(
@@ -1815,37 +1752,53 @@ class MainWindow(QtWidgets.QMainWindow):
                     "There must be at least one planar and one linear structure defined in database!",
                 )
 
-    def moveStructureUp(self):
-        """Move selected structure up."""
-        indexlist = self.structureSelection.selectedRows()
+    def _db_swappos(self, table, aid, bid):
+        """Swap the pos values of two rows in table. table is always an internal constant."""
+        apos = self.conn.execute(
+            f"SELECT pos FROM {table} WHERE id=?", (aid,)
+        ).fetchall()[0][0]
+        bpos = self.conn.execute(
+            f"SELECT pos FROM {table} WHERE id=?", (bid,)
+        ).fetchall()[0][0]
+        self.conn.execute(f"UPDATE {table} SET pos=? WHERE id=?", (bpos, aid))
+        self.conn.execute(f"UPDATE {table} SET pos=? WHERE id=?", (apos, bid))
+        self.changed = True
+
+    def _move_row(self, selection, model, view, table, direction):
+        """Move the selected row up (direction=-1) or down (direction=1)."""
+        indexlist = selection.selectedRows()
         if indexlist:
             index = indexlist[0]
-            if index.row() > 0:
-                self.db_swapposStructure(
-                    self.structures._items[index.row()][structurecol["id"]],
-                    self.structures._items[index.row() - 1][structurecol["id"]],
+            target_row = index.row() + direction
+            if 0 <= target_row < model.rowCount():
+                self._db_swappos(
+                    table,
+                    model._items[index.row()][0],
+                    model._items[target_row][0],
                 )
-                cache = self.structures.getRow(index)
-                self.structures.removeRow(index)
-                self.structures.appendRow(cache, index, -1)
-                self.ui.structuresView.selectRow(index.row() - 1)
-                self.ui.structuresView.setFocus()
+                cache = model.getRow(index)
+                model.removeRow(index)
+                model.appendRow(cache, index, direction)
+                view.selectRow(target_row)
+                view.setFocus()
+
+    def moveStructureUp(self):
+        self._move_row(
+            self.structureSelection,
+            self.structures,
+            self.structuresView,
+            "structype",
+            -1,
+        )
 
     def moveStructureDown(self):
-        """Move selected structure up."""
-        indexlist = self.structureSelection.selectedRows()
-        if indexlist:
-            index = indexlist[0]
-            if index.row() + 1 < self.structures.rowCount():
-                self.db_swapposStructure(
-                    self.structures._items[index.row()][structurecol["id"]],
-                    self.structures._items[index.row() + 1][structurecol["id"]],
-                )
-                cache = self.structures.getRow(index)
-                self.structures.removeRow(index)
-                self.structures.appendRow(cache, index, 1)
-                self.ui.structuresView.selectRow(index.row() + 1)
-                self.ui.structuresView.setFocus()
+        self._move_row(
+            self.structureSelection,
+            self.structures,
+            self.structuresView,
+            "structype",
+            1,
+        )
 
     def db_addStructure(self, data):
         """Add structure to database."""
@@ -1892,24 +1845,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.changed = True
         return count
 
-    def db_swapposStructure(self, aid, bid):
-        apos = self.conn.execute(
-            "SELECT pos FROM structype WHERE id=?", (aid,)
-        ).fetchall()[0][0]
-        bpos = self.conn.execute(
-            "SELECT pos FROM structype WHERE id=?", (bid,)
-        ).fetchall()[0][0]
-        self.conn.execute("UPDATE structype SET pos=? WHERE id=?", (bpos, aid))
-        self.conn.execute("UPDATE structype SET pos=? WHERE id=?", (apos, bid))
-        self.changed = True
-
     # ----------------------------------------------------------------------
     # UNIT VIEW
     # ----------------------------------------------------------------------
     def addUnitDlg(self):
         """Open add unit dialog."""
         dlg = DialogAddEditUnit("Add")
-        if dlg.exec_():
+        if dlg.exec():
             cur = self.db_addUnit(dlg.data)
             if cur.rowcount > 0:
                 dlg.data[unitcol["id"]] = cur.lastrowid
@@ -1917,18 +1859,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage(
                     "Unit %s added." % dlg.data[unitcol["name"]], 5000
                 )
-                self.ui.unitsView.scrollToBottom()
+                self.unitsView.scrollToBottom()
             else:
                 self.statusBar().showMessage(
                     f"Unit {dlg.data[unitcol['name']]} already exists.", 5000
                 )
-            # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
-            self.ui.unitsView.setFocus()
+            # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect | QtCore.QItemSelectionModel.SelectionFlag.Rows)
+            self.unitsView.setFocus()
 
     def editUnitDlg(self, index):
         """Open edit unit dialog."""
         dlg = DialogAddEditUnit("Edit", self.units.getRow(index).copy())
-        if dlg.exec_():
+        if dlg.exec():
             cur = self.db_updateUnit(dlg.data)
             if cur.rowcount > 0:
                 self.units.updateRow(index, dlg.data)
@@ -1958,7 +1900,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     f"Do you want to delete unit {todel[unitcol['name']]} and all related sites and data?",
                     "Assign another unit to sites:",
                 )
-                if dlg.exec_():
+                if dlg.exec():
                     if dlg.checked():
                         # assign other unit to sites
                         self.conn.execute(
@@ -1993,36 +1935,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
 
     def moveUnitUp(self):
-        """Move selected unit up."""
-        indexlist = self.unitSelection.selectedRows()
-        if indexlist:
-            index = indexlist[0]
-            if index.row() > 0:
-                self.db_swapposUnit(
-                    self.units._items[index.row()][unitcol["id"]],
-                    self.units._items[index.row() - 1][unitcol["id"]],
-                )
-                cache = self.units.getRow(index)
-                self.units.removeRow(index)
-                self.units.appendRow(cache, index, -1)
-                self.ui.unitsView.selectRow(index.row() - 1)
-                self.ui.unitsView.setFocus()
+        self._move_row(self.unitSelection, self.units, self.unitsView, "units", -1)
 
     def moveUnitDown(self):
-        """Move selected unit up."""
-        indexlist = self.unitSelection.selectedRows()
-        if indexlist:
-            index = indexlist[0]
-            if index.row() + 1 < self.units.rowCount():
-                self.db_swapposUnit(
-                    self.units._items[index.row()][unitcol["id"]],
-                    self.units._items[index.row() + 1][unitcol["id"]],
-                )
-                cache = self.units.getRow(index)
-                self.units.removeRow(index)
-                self.units.appendRow(cache, index, 1)
-                self.ui.unitsView.selectRow(index.row() + 1)
-                self.ui.unitsView.setFocus()
+        self._move_row(self.unitSelection, self.units, self.unitsView, "units", 1)
 
     def db_addUnit(self, data):
         """Add unit to database."""
@@ -2054,24 +1970,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.changed = True
         return scount, dcount
 
-    def db_swapposUnit(self, aid, bid):
-        apos = self.conn.execute("SELECT pos FROM units WHERE id=?", (aid,)).fetchall()[
-            0
-        ][0]
-        bpos = self.conn.execute("SELECT pos FROM units WHERE id=?", (bid,)).fetchall()[
-            0
-        ][0]
-        self.conn.execute("UPDATE units SET pos=? WHERE id=?", (bpos, aid))
-        self.conn.execute("UPDATE units SET pos=? WHERE id=?", (apos, bid))
-        self.changed = True
-
     # ----------------------------------------------------------------------
     # TAG VIEW
     # ----------------------------------------------------------------------
     def addTagDlg(self):
         """Open add tag dialog."""
         dlg = DialogAddEditTag("Add")
-        if dlg.exec_():
+        if dlg.exec():
             cur = self.db_addTag(dlg.data)
             if cur.rowcount > 0:
                 dlg.data[tagcol["id"]] = cur.lastrowid
@@ -2079,18 +1984,18 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.statusBar().showMessage(
                     f"Tag {dlg.data[tagcol['name']]} added.", 5000
                 )
-                self.ui.tagsView.scrollToBottom()
+                self.tagsView.scrollToBottom()
             else:
                 self.statusBar().showMessage(
                     f"Tag {dlg.data[tagcol['name']]} already exists.", 5000
                 )
-            # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.ClearAndSelect | QtCore.QItemSelectionModel.Rows)
-            self.ui.tagsView.setFocus()
+            # self.siteSelection.setCurrentIndex(self.sites.index(self.sites.rowCount()-1,sitecol['name']), QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect | QtCore.QItemSelectionModel.SelectionFlag.Rows)
+            self.tagsView.setFocus()
 
     def editTagDlg(self, index):
         """Open edit tag dialog."""
         dlg = DialogAddEditTag("Edit", self.tags.getRow(index))
-        if dlg.exec_():
+        if dlg.exec():
             cur = self.db_updateTag(dlg.data)
             if cur.rowcount > 0:
                 self.tags.updateRow(index, dlg.data)
@@ -2118,7 +2023,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 f"Do you want to delete tag {todel[tagcol['name']]}?",
                 "Assign another tag to data:",
             )
-            if dlg.exec_():
+            if dlg.exec():
                 if dlg.checked() and (len(others) > 0):
                     # assign other tags to data
                     self.conn.execute(
@@ -2135,36 +2040,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 )
 
     def moveTagUp(self):
-        """Move selected tag up."""
-        indexlist = self.tagSelection.selectedRows()
-        if indexlist:
-            index = indexlist[0]
-            if index.row() > 0:
-                self.db_swapposTag(
-                    self.tags._items[index.row()][tagcol["id"]],
-                    self.tags._items[index.row() - 1][tagcol["id"]],
-                )
-                cache = self.tags.getRow(index)
-                self.tags.removeRow(index)
-                self.tags.appendRow(cache, index, -1)
-                self.ui.tagsView.selectRow(index.row() - 1)
-                self.ui.tagsView.setFocus()
+        self._move_row(self.tagSelection, self.tags, self.tagsView, "tags", -1)
 
     def moveTagDown(self):
-        """Move selected tag up."""
-        indexlist = self.tagSelection.selectedRows()
-        if indexlist:
-            index = indexlist[0]
-            if index.row() + 1 < self.tags.rowCount():
-                self.db_swapposTag(
-                    self.tags._items[index.row()][tagcol["id"]],
-                    self.tags._items[index.row() + 1][tagcol["id"]],
-                )
-                cache = self.tags.getRow(index)
-                self.tags.removeRow(index)
-                self.tags.appendRow(cache, index, 1)
-                self.ui.tagsView.selectRow(index.row() + 1)
-                self.ui.tagsView.setFocus()
+        self._move_row(self.tagSelection, self.tags, self.tagsView, "tags", 1)
 
     def db_addTag(self, data):
         """Add tag to database."""
@@ -2190,23 +2069,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.conn.execute("DELETE FROM tags WHERE id=?", (id,))
         self.changed = True
 
-    def db_swapposTag(self, aid, bid):
-        apos = self.conn.execute("SELECT pos FROM tags WHERE id=?", (aid,)).fetchall()[
-            0
-        ][0]
-        bpos = self.conn.execute("SELECT pos FROM tags WHERE id=?", (bid,)).fetchall()[
-            0
-        ][0]
-        self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (bpos, aid))
-        self.conn.execute("UPDATE tags SET pos=? WHERE id=?", (apos, bid))
-        self.changed = True
-
 
 def main():
     app = QtWidgets.QApplication(sys.argv)
     window = MainWindow()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 if __name__ == "__main__":

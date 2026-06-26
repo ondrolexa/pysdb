@@ -15,7 +15,7 @@
     <normaloff>:/icons/pysdb3.png</normaloff>:/icons/pysdb3.png</iconset>
   </property>
   <property name="dockOptions">
-   <set>QMainWindow::AllowTabbedDocks|QMainWindow::AnimatedDocks</set>
+   <set>QMainWindow::DockOption::AllowTabbedDocks|QMainWindow::DockOption::AnimatedDocks</set>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QGridLayout" name="gridLayout_3">
@@ -58,7 +58,7 @@
           <bool>false</bool>
          </attribute>
          <attribute name="verticalHeaderDefaultSectionSize">
-          <number>22</number>
+          <number>23</number>
          </attribute>
         </widget>
        </item>
@@ -161,7 +161,7 @@
           <bool>false</bool>
          </attribute>
          <attribute name="verticalHeaderDefaultSectionSize">
-          <number>22</number>
+          <number>23</number>
          </attribute>
         </widget>
        </item>
@@ -239,7 +239,7 @@
      <x>0</x>
      <y>0</y>
      <width>900</width>
-     <height>22</height>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -261,14 +261,13 @@
     <addaction name="separator"/>
     <addaction name="actionExport"/>
     <addaction name="separator"/>
-    <addaction name="actionInformation"/>
-    <addaction name="separator"/>
     <addaction name="actionQuit"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
      <string>Edit</string>
     </property>
+    <addaction name="actionInformation"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -312,7 +311,7 @@
    </property>
    <property name="minimumSize">
     <size>
-     <width>232</width>
+     <width>236</width>
      <height>158</height>
     </size>
    </property>
@@ -323,7 +322,7 @@
     </size>
    </property>
    <property name="features">
-    <set>QDockWidget::AllDockWidgetFeatures</set>
+    <set>QDockWidget::DockWidgetFeature::DockWidgetClosable|QDockWidget::DockWidgetFeature::DockWidgetMovable|QDockWidget::DockWidgetFeature::DockWidgetFloatable</set>
    </property>
    <property name="allowedAreas">
     <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
@@ -365,7 +364,7 @@
           <bool>false</bool>
          </attribute>
          <attribute name="verticalHeaderDefaultSectionSize">
-          <number>21</number>
+          <number>23</number>
          </attribute>
         </widget>
        </item>
@@ -455,7 +454,7 @@
    </property>
    <property name="minimumSize">
     <size>
-     <width>232</width>
+     <width>236</width>
      <height>158</height>
     </size>
    </property>
@@ -466,7 +465,7 @@
     </size>
    </property>
    <property name="features">
-    <set>QDockWidget::AllDockWidgetFeatures</set>
+    <set>QDockWidget::DockWidgetFeature::DockWidgetClosable|QDockWidget::DockWidgetFeature::DockWidgetMovable|QDockWidget::DockWidgetFeature::DockWidgetFloatable</set>
    </property>
    <property name="allowedAreas">
     <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
@@ -508,7 +507,7 @@
           <bool>false</bool>
          </attribute>
          <attribute name="verticalHeaderDefaultSectionSize">
-          <number>21</number>
+          <number>23</number>
          </attribute>
         </widget>
        </item>
@@ -598,7 +597,7 @@
    </property>
    <property name="minimumSize">
     <size>
-     <width>232</width>
+     <width>236</width>
      <height>158</height>
     </size>
    </property>
@@ -609,7 +608,7 @@
     </size>
    </property>
    <property name="features">
-    <set>QDockWidget::AllDockWidgetFeatures</set>
+    <set>QDockWidget::DockWidgetFeature::DockWidgetClosable|QDockWidget::DockWidgetFeature::DockWidgetMovable|QDockWidget::DockWidgetFeature::DockWidgetFloatable</set>
    </property>
    <property name="allowedAreas">
     <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
@@ -651,7 +650,7 @@
           <bool>false</bool>
          </attribute>
          <attribute name="verticalHeaderDefaultSectionSize">
-          <number>21</number>
+          <number>23</number>
          </attribute>
         </widget>
        </item>

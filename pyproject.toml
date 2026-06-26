@@ -3,8 +3,8 @@ name = "pysdb3"
 dynamic = ["version"]
 description = "SDB structural database manager"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { file = "LICENSE" }
+requires-python = ">=3.14"
+license = "MIT"
 authors = [{ name = "Ondrej Lexa", email = "lexa.ondrej@gmail.com" }]
 maintainers = [{ name = "Ondrej Lexa", email = "lexa.ondrej@gmail.com" }]
 classifiers = [
@@ -15,25 +15,29 @@ classifiers = [
     "Topic :: Utilities",
     "Programming Language :: Python :: 3",
 ]
-dependencies = ["lxml", "pyqt5"]
-
-[project.optional-dependencies]
-dev = ["pysdb3", "black"]
-
-[project.urls]
-Homepage = "https://github.com/ondrolexa/pysdb"
-Repository = "https://github.com/ondrolexa/pysdb.git"
-Issues = "https://github.com/ondrolexa/pysdb/issues"
-
-[project.gui-scripts]
-pysdb3 = "pysdb3.mainapp:main"
+dependencies = [
+    "lxml>=6.1.1",
+    "pyqt6>=6.7.0",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["pysdb3"]
+
+[project.gui-scripts]
+pysdb3 = "pysdb3.mainapp:main"
+
 [tool.hatch.version]
 path = "pysdb3/mainapp.py"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.black]
 line-length = 88

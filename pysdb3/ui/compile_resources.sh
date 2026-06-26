@@ -1,16 +1,26 @@
 #!/bin/bash
-pyuic5 --from-imports -o ../ui_pysdb3.py pysdb3.ui
-pyuic5 --from-imports -o ../ui_addeditdata.py addeditdata.ui
-pyuic5 --from-imports -o ../ui_addeditsite.py addeditsite.ui
-pyuic5 --from-imports -o ../ui_addeditstructure.py addeditstructure.ui
-pyuic5 --from-imports -o ../ui_addedittag.py addedittag.ui
-pyuic5 --from-imports -o ../ui_addeditunit.py addeditunit.ui
-pyuic5 --from-imports -o ../ui_savediscard.py savediscard.ui
-pyuic5 --from-imports -o ../ui_datafilter.py datafilter.ui
-pyuic5 --from-imports -o ../ui_sitefilter.py sitefilter.ui
-pyuic5 --from-imports -o ../ui_sdbinfo.py sdbinfo.ui
-pyuic5 --from-imports -o ../ui_sdbreport.py sdbreport.ui
-pyuic5 --from-imports -o ../ui_importsitesfile.py importsitesfile.ui
-pyuic5 --from-imports -o ../ui_selectunit.py selectunit.ui
-pyuic5 --from-imports -o ../ui_multieditdata.py multieditdata.ui
-pyrcc5 -o ../pysdb3_rc.py pysdb3.qrc
+set -e
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+# Locate Qt6 rcc (pyrcc6 does not exist; Qt6 rcc --generator python replaces pyrcc5)
+RCC=$(
+    for candidate in \
+        /usr/lib/qt6/libexec/rcc \
+        /usr/lib/x86_64-linux-gnu/qt6/libexec/rcc \
+        /usr/local/lib/qt6/libexec/rcc \
+        rcc6 \
+        qt6-rcc; do
+        if command -v "$candidate" >/dev/null 2>&1 || [ -x "$candidate" ]; then
+            echo "$candidate"
+            break
+        fi
+    done
+)
+
+if [ -z "$RCC" ]; then
+    echo "Error: Qt6 rcc not found. Install qt6-tools (e.g. apt install qt6-base-dev-tools)." >&2
+    exit 1
+fi
+
+"$RCC" --generator python -o ../pysdb3_rc.py pysdb3.qrc
+sed -i 's/from PySide6 import QtCore/from PyQt6 import QtCore/' ../pysdb3_rc.py
